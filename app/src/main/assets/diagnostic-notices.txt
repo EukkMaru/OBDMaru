@@ -1,0 +1,8 @@
+Diagnostic candidate data adapted from OBDb/Hyundai-Tucson contributors:
+https://github.com/OBDb/Hyundai-Tucson
+Revision b1306dc2c54e32ba4344fcbb5fd098ef66db50e7
+
+Licensed under Creative Commons Attribution-ShareAlike 4.0 International:
+https://creativecommons.org/licenses/by-sa/4.0/
+
+Adapted candidate lists are distributed under the same license. Changes: extracted selected request/header pairs, separated TCM requests, omitted formulas/model filters, and added provenance labels. Compatibility with this vehicle is unverified. No endorsement is implied. Full license follows.

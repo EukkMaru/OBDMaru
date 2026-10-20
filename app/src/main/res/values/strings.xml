@@ -1,0 +1,4 @@
+<resources>
+    <string name="capture_status">%1$s\n%2$s</string>
+    <string name="capture_file">%1$s\n%2$d KiB saved</string>
+</resources>

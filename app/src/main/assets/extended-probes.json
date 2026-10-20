@@ -1,0 +1,410 @@
+[
+  {
+    "header": "7A0",
+    "command": "22B009",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7B3",
+    "command": "220100",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7B3",
+    "command": "220101",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7C6",
+    "command": "22B002",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7D1",
+    "command": "2101",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7D1",
+    "command": "220104",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7D1",
+    "command": "224000",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7D1",
+    "command": "22C101",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7D4",
+    "command": "2101",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7D6",
+    "command": "2106",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "2100",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "2101",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "2102",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "2103",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "2104",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "2105",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "2106",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "2107",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "2108",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "210A",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "210B",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "210D",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "210E",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "2113",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "2114",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "2115",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "2116",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "2117",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "2118",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "2119",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "211B",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "211D",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "2120",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "2123",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "2127",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "21A0",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "2221A0",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22E001",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22E002",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22E003",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22E004",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22E005",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22E007",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22E009",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22E00A",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22E00D",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22E010",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22E011",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22E014",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22E019",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22E01D",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22E020",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22E021",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22E023",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22E0F1",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22E0F2",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22ED01",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22ED02",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22ED03",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22ED04",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22ED05",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22ED06",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22ED07",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22ED13",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22ED1D",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22ED27",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22ED29",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  },
+  {
+    "header": "7E0",
+    "command": "22ED94",
+    "source": "OBDb/Hyundai-Tucson",
+    "candidate": true
+  }
+]
