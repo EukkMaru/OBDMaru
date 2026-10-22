@@ -16,12 +16,23 @@ class CaptureService : Service() {
     private var worker: Thread? = null
     private var wake: PowerManager.WakeLock? = null
     private var began = 0L
+    private var speaker: GuideSpeaker? = null
+    private var guide: GuideRunner? = null
+    @Volatile private var latest = LiveSample()
+    @Volatile private var guidePaused = false
+    @Volatile private var skipGuide = false
+    private var guideCompletedLogged = false
+    private var announcedWait: String? = null
+    override fun onCreate() { super.onCreate(); speaker = GuideSpeaker(this) }
     override fun onBind(intent: Intent?) = null
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             "STOP" -> stopCapture()
             "MARK" -> log?.event("marker", "label" to intent.getStringExtra("label"))
-            "START" -> if (!active) startCapture(intent)
+            "GUIDE_PAUSE" -> { guidePaused = !guidePaused; log?.event("guide_pause", "paused" to guidePaused) }
+            "GUIDE_SKIP" -> { skipGuide = true }
+            "GUIDE_REPEAT" -> guide?.current?.let { speaker?.say(it.words, it.id + "-repeat") }
+            "START" -> if (!active && worker?.isAlive != true) startCapture(intent)
         }
         return START_NOT_STICKY
     }
@@ -34,7 +45,12 @@ class CaptureService : Service() {
             .setContentText("Raw diagnostic recording in progress").setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
             .setOngoing(true).setContentIntent(open).addAction(Notification.Action.Builder(null, "Stop", stop).build()).build()
         startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
-        active = true; running = true; began = SystemClock.elapsedRealtime()
+        active = true; running = true; currentFile = null; latest = LiveSample()
+        guided = intent.getStringExtra("mode") == CaptureMode.GUIDED.name
+        guide = if (guided) GuideRunner() else null
+        guidePaused = false; skipGuide = false; guideCompletedLogged = false; announcedWait = null
+        guideText = if (guided) "Wait while parked for connection checks and spoken guidance." else "Free drive · no instructions"
+        began = SystemClock.elapsedRealtime()
         val demo = intent.getBooleanExtra("demo", false)
         val address = intent.getStringExtra("address") ?: "DEMO"
         val name = intent.getStringExtra("name") ?: "Demo"
@@ -45,26 +61,34 @@ class CaptureService : Service() {
                     .apply { acquire(2 * 60 * 60 * 1000L) }
                 val session = SessionLog(this, address, name, demo)
                 log = session; currentFile = session.file
-                // Store the exact plan with the data, so interpretation doesn't depend on a later app version.
-                session.event("plan", "mode01" to "all support pages, then all PIDs 01..FF except support pages",
-                    "tcm_header" to "7E1", "tcm_requests" to org.json.JSONArray(CapturePlan.TCM), "minimum_gap_ms" to 100)
+                speaker?.log = session
+                session.event("plan", "capture_mode" to if (guided) "GUIDED" else "MAGIC", "minimum_gap_ms" to 15,
+                    "scope" to "prioritized fast signals plus finite read-only discovery", "speech_state" to speaker?.state)
+                if (guided) session.event("guide_plan", "assumed_limit_kph" to 90, "prompt_is_not_action" to true,
+                    "steps" to org.json.JSONArray(GuidePlan.steps.map { step -> org.json.JSONObject()
+                        .put("id", step.id).put("duration_s",step.seconds).put("moving",step.moving)
+                        .put("max_prompt_speed_kph",step.maxKph).put("words",step.words) }))
                 val probeJson = org.json.JSONArray(assets.open("extended-probes.json").bufferedReader().use { it.readText() })
                 val probes = (0 until probeJson.length()).map { probeJson.getJSONObject(it).let { row -> row.getString("header") to row.getString("command") } }
                 session.event("extended_plan", "probes" to probeJson)
                 val link: ElmTransport = if (demo) DemoElm(session) else resilient(address, session)
                 transport = link
-                CapturePlan(link, session, { active && SystemClock.elapsedRealtime() - began < 2 * 60 * 60 * 1000 }, { status = it }, probes).run()
+                CapturePlan(link, session, { active && SystemClock.elapsedRealtime() - began < 2 * 60 * 60 * 1000 },
+                    { status = it }, probes, if (guided) CaptureMode.GUIDED else CaptureMode.MAGIC,
+                    { latest = it }, { guideTick(session) }).run()
                 if (active) reason = "two_hour_limit"
             } catch (e: Exception) {
                 reason = if (active) "error: $e" else "stopped"
-                try { log?.event("capture_error", "error" to e.toString(), "stack" to e.stackTraceToString()) } catch (_: Exception) {}
+                try { if (active) log?.event("capture_error", "error" to e.toString(), "stack" to e.stackTraceToString()) } catch (_: Exception) {}
             } finally {
-                active = false; running = false
+                active = false
                 transport?.close(); transport = null
                 try { log?.close(reason) } catch (_: Exception) {}
+                speaker?.log = null
                 log = null
                 if (wake?.isHeld == true) wake?.release()
                 status = "Finished: $reason"
+                guided = false; running = false
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
             }
@@ -129,16 +153,63 @@ class CaptureService : Service() {
             override fun close() { current?.close() }
         }
     }
+    private fun guideTick(session: SessionLog) {
+        val runner = guide ?: return
+        if (!active) return
+        if (skipGuide) {
+            session.event("guide_skipped", "stage" to runner.current?.id, "reason" to "user requested; no action assumed")
+            runner.advance(SystemClock.elapsedRealtime()); skipGuide = false
+        }
+        if (runner.done) {
+            if (!guideCompletedLogged) {
+                session.event("guide_complete", "capture_continues" to true)
+                speaker?.say("The guided sequence is complete. Keep driving normally. Recording continues. Stop and save when you are parked.", "complete")
+                guideCompletedLogged = true
+            }
+            guideText = "Guide complete · recording continues until you stop while parked."
+            return
+        }
+        if (speaker?.ready != true) {
+            guideText = "${speaker?.state}. Guided progression waits; raw capture continues."
+            return
+        }
+        val time = SystemClock.elapsedRealtime()
+        val speed = if (!guidePaused && time-latest.speedAtMs < 5000) latest.speedKph else null
+        val step = runner.tick(time,speed)
+        runner.takeAutomaticSkip()?.let {
+            session.event("guide_skipped", "stage" to it, "reason" to "No suitable lower-speed window within 75 seconds")
+            speaker?.say("We are skipping the optional stronger input window. Continue normally.","automatic_skip")
+        }
+        val waiting = runner.current
+        if (!guidePaused && runner.paused && waiting?.maxKph != null && speed != null && speed > waiting.maxKph && announcedWait != waiting.id) {
+            speaker?.say("The next optional pedal window waits for a naturally lower pace. Keep driving normally; do not slow down just for this test. It will be skipped if no suitable opportunity appears.","waiting_"+waiting.id)
+            session.event("guide_wait", "stage" to waiting.id, "reason" to "speed headroom", "speed_kph" to speed)
+            announcedWait = waiting.id
+        }
+        if (step != null) {
+            session.event("guide_step", "index" to runner.index, "stage" to step.id, "words" to step.words,
+                "intended_window_s" to step.seconds, "driver_action_confirmed" to false,
+                "speed_kph" to latest.speedKph)
+            speaker?.say(step.words,step.id)
+        }
+        val current = runner.current
+        guideText = if (guidePaused) "Guide paused · raw recording continues" else if (current == null) "Finishing guide…" else
+            "${runner.index+1}/${GuidePlan.steps.size} · ${current.id.replace('_',' ')} · ${runner.remainingSeconds()}s" +
+            if (runner.paused) " · waiting for suitable movement/speed data" else "\n${current.words}"
+    }
     private fun stopCapture() {
+        if (!active) return
         active = false
         status = "Stopping and saving…"
         transport?.close()
         if (worker == null) { running = false; stopSelf() }
     }
-    override fun onDestroy() { stopCapture(); super.onDestroy() }
+    override fun onDestroy() { stopCapture(); speaker?.close(); super.onDestroy() }
     companion object {
         @Volatile var running = false
         @Volatile var status = "Ready"
+        @Volatile var guided = false
+        @Volatile var guideText = ""
         @Volatile var currentFile: File? = null
     }
 }

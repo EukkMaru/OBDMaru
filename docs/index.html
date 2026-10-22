@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OBDMaru · Magic App 2.0</title>
+<style>
+:root{color-scheme:dark light;--bg:light-dark(#f5f7fa,#0b1219);--text:light-dark(#18262f,#e4edf4);--muted:light-dark(#42596a,#adc0ce);--panel:light-dark(#fff,#131f2a);--accent:light-dark(#086454,#68ddbf);--border:light-dark(#d1dee6,#304251)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 system-ui,sans-serif}main{max-width:920px;margin:auto;padding:48px 22px 64px}h1{font-size:clamp(2rem,6vw,3.5rem);line-height:1.1;margin:.3em 0}h2{margin-top:2em}h3{margin:0}p{max-width:74ch}.eyebrow,.muted{color:var(--muted)}.download{display:inline-block;background:var(--accent);color:var(--bg);padding:13px 22px;border-radius:10px;font-weight:650;text-decoration:none;margin:12px 12px 12px 0}a{color:var(--accent)}.modes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.mode{padding:22px;border:1px solid var(--border);border-radius:12px;background:var(--panel)}li{margin:.6em 0}summary{cursor:pointer;padding:14px 0}details{border-top:1px solid var(--border)}.route li{padding:8px 0}.route span{display:block;color:var(--muted)}code{overflow-wrap:anywhere}footer{margin-top:40px;color:var(--muted);border-top:1px solid var(--border);padding-top:20px}@media(max-width:600px){main{padding-top:28px}.modes{grid-template-columns:1fr}}
+</style>
+</head>
+<body><main>
+<div class="eyebrow">Tucson TL 1.7 CRDi · Android · Bluetooth ELM327</div>
+<h1>Magic App 2.0</h1>
+<p>Two capture modes, faster priority polling, and a continuous spoken validation route. Preserve raw requests, replies, failures, and timing for desktop analysis.</p>
+<a class="download" href="https://github.com/EukkMaru/OBDMaru/releases/download/v2.0.0/OBDMaru-Magic-v2.0.0.apk">Download Android APK</a>
+<a href="https://github.com/EukkMaru/OBDMaru/releases/tag/v2.0.0">Release notes &amp; checksum</a>
+<p class="muted">Android 12+ · v2.0.0 · experimental, debug-signed build. Install over the previous version to preserve local sessions. Export recordings before uninstalling.</p>
+<div class="modes">
+<section class="mode"><h3>Magic · broad capture</h3><p>Start once and take an ordinary drive. Priority requests for motion, pedals and transmission data run alongside standard discovery and a finite set of Hyundai read requests. Zero-only readings are revisited less often.</p><p>No driving script or voice prompts.</p></section>
+<section class="mode"><h3>Guided · spoken sequence</h3><p>Start while parked. Spoken instructions begin automatically after connection checks. The sequence covers parked brake patterns, progressive pedal inputs, cruise at 60/70 where appropriate, and adjacent manual shifts.</p><p>The guide finishes; recording keeps running until you park and stop it.</p></section>
+</div>
+<h2>Before the drive</h2>
+<ol>
+<li>Download and install the APK on the S23+. Grant Nearby devices and notification permissions.</li>
+<li>Use <strong>Test spoken instructions</strong>. Check the phone/car audio volume and that an English TTS voice is installed. The app uses Android text-to-speech; voice quality depends on your installed engine.</li>
+<li>Optionally run <strong>Run demo capture (no car)</strong>, then stop and export to check the file workflow. Demo data is synthetic. A guided desk demo waits for simulated motion after its parked section; it is not a real drive.</li>
+<li>While parked, connect the OBD adapter and pair it in Android Bluetooth settings. Refresh paired devices and select it.</li>
+<li>Choose Magic or Guided. For Guided, remain parked in P with parking brake on and engine idling, then tap <strong>Start selected vehicle capture</strong> and confirm the parked setup. Wait for spoken instructions.</li>
+</ol>
+<h2>How to follow the guided route</h2>
+<p>The sequence assumes a suitable road with a <strong>90 km/h limit</strong>. Actual posted limits, traffic, visibility, and comfortable engine RPM always take priority. The 60/70 targets and every stronger input or gear request are optional. There is no sustained parked throttle test, emergency-stop requirement, or multi-gear downshift.</p>
+<p>Drive continuously and follow only the actions that fit the road. You do not need to touch the phone. Prompts are timestamped as instructions, not proof that you performed the action. We can compare the actual telemetry afterward even when your timing differs.</p>
+<p>Moving-stage timers pause at stops or when speed data is stale. A stronger-input window waits for a naturally lower pace and skips itself after 75 seconds if no suitable opportunity appears. Do not slow just to activate it. Passenger/parked controls can pause, repeat or skip instructions.</p>
+<details><summary>Full spoken sequence · 21 stages</summary><ol class="route" id="route">
+<li><strong>parked baseline</strong><span>25 seconds of eligible time</span>Keep the car parked in P, parking brake on, engine idling. Leave the accelerator alone. Rest your foot off the foot brake for a baseline.</li>
+<li><strong>parked light brake</strong><span>25 seconds of eligible time</span>While still parked, press the foot brake lightly for two seconds, then release it fully. Repeat once. Leave the accelerator alone.</li>
+<li><strong>parked firm brake</strong><span>30 seconds of eligible time</span>Still parked in P, press the foot brake more firmly but comfortably for two seconds, then release. Then make two light taps followed by one firmer press. No accelerator input.</li>
+<li><strong>depart 60</strong><span>75 seconds of eligible time</span>Begin your normal journey when ready. If the road permits, build speed smoothly toward sixty kilometers per hour with light accelerator and comfortable low revs. Do not lug the engine, force a gear, or chase the target.</li>
+<li><strong>cruise 60</strong><span>55 seconds of eligible time</span>On the assumed ninety limit road, if appropriate, settle near sixty and enable cruise at your current speed. Lift your foot off the accelerator and let cruise hold it. Skip cruise if conditions do not suit.</li>
+<li><strong>cruise 70</strong><span>65 seconds of eligible time</span>If cruise is active and the road is clear, gradually raise its set speed toward seventy using the cruise buttons. Let the speed settle. Follow any lower posted limit instead; seventy is not required.</li>
+<li><strong>brake cancel</strong><span>45 seconds of eligible time</span>At the next appropriate slowdown, brake gently to cancel cruise, then continue normally. Do not create an unnecessary stop. This is the brake cancellation observation window.</li>
+<li><strong>soft gas</strong><span>40 seconds of eligible time</span>With cruise off, accelerate softly from your current pace using a light pedal, then ease off and coast naturally. This is about gentle pedal depth, not reaching a speed.</li>
+<li><strong>progressive gas</strong><span>40 seconds of eligible time</span>When appropriate, gradually press the accelerator from light toward moderate for a few seconds, then ease back and release. Let the car coast. Choose your own timing and stay below the limit.</li>
+<li><strong>brief full gas</strong><span>40 seconds of eligible time</span>Optional stronger input, only with clear road and plenty of speed headroom. Smoothly press fully for about one second, ease back toward moderate pedal, then lift off. Skip this entirely if unsuitable. Do not sustain full throttle or chase a target speed.</li>
+<li><strong>light brake</strong><span>35 seconds of eligible time</span>After coasting, use a light brake application when you next naturally need to slow. Release it and return to ordinary driving. There is no need to stop.</li>
+<li><strong>alternate gas</strong><span>45 seconds of eligible time</span>If appropriate, build accelerator pressure smoothly from light to moderate, ease it back to light, then release and coast. A brief firmer input is optional. Do not pump the pedals or alternate brake and accelerator together.</li>
+<li><strong>firmer brake</strong><span>40 seconds of eligible time</span>Coast first. At a naturally needed slowdown, you may brake more firmly than before, then release and settle. No emergency stop, target deceleration, or immediate full acceleration is requested.</li>
+<li><strong>cruise resume</strong><span>60 seconds of eligible time</span>Optional cruise check. If its remembered speed is suitable, resume once and let it settle. Otherwise skip it. Then cancel with the cancel button when appropriate and continue with cruise off.</li>
+<li><strong>manual prepare</strong><span>75 seconds of eligible time</span>The next section is optional manual shifting with cruise off. Settle at a steady legal pace, up to around ninety only if appropriate, leaving margin to the speed limit. Let D choose seventh if it naturally does. Do not accelerate just to reach seventh.</li>
+<li><strong>manual seventh</strong><span>30 seconds of eligible time</span>If you are steady in seventh and comfortable, select manual mode and keep seventh for a moment. If not in seventh, skip the requested gear sequence and drive normally.</li>
+<li><strong>manual sixth</strong><span>25 seconds of eligible time</span>If suitable at your current speed and revs, make one adjacent shift from seventh to sixth. Maintain a comfortable legal pace and let it settle. Skip any shift that would require high revs or excessive speed.</li>
+<li><strong>manual fifth</strong><span>25 seconds of eligible time</span>If sixth is settled and revs allow, make one adjacent shift to fifth, then hold a steady comfortable pace. Do not force the downshift. Skip it if unsuitable.</li>
+<li><strong>manual back sixth</strong><span>25 seconds of eligible time</span>When appropriate, shift from fifth back to sixth and let it settle. Keep speed and traffic conditions ahead of the gear request.</li>
+<li><strong>manual back seventh</strong><span>25 seconds of eligible time</span>When appropriate, make the next adjacent upshift to seventh and let it settle. Then return to normal D when comfortable. No multi gear downshift is requested.</li>
+<li><strong>normal finish</strong><span>60 seconds of eligible time</span>Continue your normal drive. The guided sequence is nearly finished. Recording will continue after the final instruction. Keep driving until you can park, then stop and export the session.</li>
+</ol></details>
+<h2>After each capture</h2>
+<ol>
+<li>Keep driving normally after the final instruction, until you can pull over and park.</li>
+<li>Tap <strong>Stop and save</strong>. Use <strong>Save a session to Files</strong> or <strong>Share a saved session</strong>.</li>
+<li>Send the <code>.jsonl</code> file privately in the project chat. Ideally send one ordinary Magic capture and one Guided capture; they may be separate drives.</li>
+</ol>
+<h2>What changed</h2>
+<ul>
+<li>15 ms serial turnaround instead of the previous fixed 100 ms pause.</li>
+<li>Priority scheduling, fewer redundant addressing commands, finite discovery, and measured per-request cadence in the log. Desired rates are not guarantees.</li>
+<li>Raw-byte logging remains intact. Buffered writes sync roughly every half-second; markers and a normal stop sync immediately. A sudden kill may lose the recent unsynced tail.</li>
+<li>Guided instructions, actual speech callbacks, pauses, skips, and completion are logged separately. Capture continues after guide completion.</li>
+</ul>
+<p class="muted">Build, protocol/scheduler/guide tests, desktop tools, and Android emulator capture tests are checked. Physical-adapter throughput and audible TTS routing on your S23+ still need verification. A diagnostic reply does not validate its sensor interpretation.</p>
+<footer>Recordings can contain VIN and driving telemetry. Keep them out of the public repository. The app uses read-only ECU requests; it does not clear faults or run actuator tests. <a href="https://github.com/EukkMaru/OBDMaru">Source &amp; technical documentation</a>.</footer>
+</main></body></html>

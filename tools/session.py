@@ -32,7 +32,26 @@ def summarize(events):
         if e["type"] == "request_end":
             tx = requests.get(e["request_id"], {})
             coverage[tx.get("command", "?")][e.get("outcome", "?")] += 1
+    interval_stats = {}
+    for event in events:
+        if event["type"] != "poll_metrics":
+            continue
+        for source, stats in event.get("intervals", {}).items():
+            total = interval_stats.setdefault(source, {"interval_count": 0, "total_ms": 0, "min_ms": stats["min_ms"], "max_ms": stats["max_ms"]})
+            total["interval_count"] += stats["samples"]
+            total["total_ms"] += stats["mean_ms"] * stats["samples"]
+            total["min_ms"] = min(total["min_ms"], stats["min_ms"])
+            total["max_ms"] = max(total["max_ms"], stats["max_ms"])
+    for stats in interval_stats.values():
+        stats["mean_ms"] = stats.pop("total_ms") / stats["interval_count"]
     return {
+        "capture_mode": next((e.get("capture_mode") for e in events if e["type"] == "plan"), None),
+        "guide_steps": [{"stage": e.get("stage"), "elapsed_seconds": e["elapsed_ns"] / 1e9,
+                         "driver_action_confirmed": e.get("driver_action_confirmed", False)}
+                        for e in events if e["type"] == "guide_step"],
+        "guide_complete": any(e["type"] == "guide_complete" for e in events),
+        "speech_events": dict(collections.Counter(e["type"] for e in events if e["type"].startswith("speech_"))),
+        "measured_poll_intervals": interval_stats,
         "session": next((e for e in events if e["type"] == "session_start"), None),
         "clean_end": any(e["type"] == "session_end" for e in events),
         "duration_seconds": (events[-1]["elapsed_ns"] - events[0]["elapsed_ns"]) / 1e9 if events else 0,

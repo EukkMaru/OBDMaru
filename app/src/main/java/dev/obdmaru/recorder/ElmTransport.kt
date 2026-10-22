@@ -81,7 +81,7 @@ class BluetoothElm(private val log: SessionLog, private val active: () -> Boolea
                     val raw = out.toString()
                     log.event("request_end", "request_id" to id, "outcome" to Protocol.outcome(raw),
                         "raw" to raw, "duration_ms" to SystemClock.elapsedRealtime() - start)
-                    Thread.sleep(100)
+                    Thread.sleep(15)
                     return raw
                 }
             }
@@ -101,7 +101,7 @@ class DemoElm(private val log: SessionLog) : ElmTransport {
         val req = ++id
         log.event("tx", "request_id" to req, "command" to command, "phase" to phase,
             "base64" to Base64.encodeToString((command + "\r").toByteArray(), Base64.NO_WRAP), "timeout_ms" to timeoutMs)
-        Thread.sleep(120)
+        Thread.sleep(35)
         val raw = when (command) {
             "ATZ", "ATI" -> "ELM327 DEMO\r>"
             "ATDPN" -> "A6\r>"
@@ -111,6 +111,8 @@ class DemoElm(private val log: SessionLog) : ElmTransport {
             "0105" -> "7E8 03 41 05 7B\r>"
             "010C" -> "7E8 04 41 0C 0C 80\r>"
             "010D" -> "7E8 03 41 0D 00\r>"
+            "0149" -> "7E8 03 41 49 26\r>"
+            "014A" -> "7E8 03 41 4A 27\r>"
             "2201A4" -> "7E9 03 7F 22 31\r>"
             else -> if (command.startsWith("AT")) "OK\r>" else "NO DATA\r>"
         }

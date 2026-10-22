@@ -6,6 +6,9 @@ import android.os.SystemClock
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import java.io.BufferedOutputStream
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -14,6 +17,9 @@ import java.util.UUID
 class SessionLog(context: Context, address: String, name: String, demo: Boolean) {
     val file: File
     private val stream: FileOutputStream
+    private val buffered: BufferedOutputStream
+    private val syncer = Executors.newSingleThreadScheduledExecutor()
+    @Volatile private var writeFailure: Exception? = null
     private val start = SystemClock.elapsedRealtimeNanos()
     private var seq = 0L
     private var closed = false
@@ -22,26 +28,31 @@ class SessionLog(context: Context, address: String, name: String, demo: Boolean)
         val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
         file = File(dir, "$stamp-${UUID.randomUUID().toString().take(8)}.jsonl")
         stream = FileOutputStream(file, true)
-        event("session_start", "schema" to 1, "app_version" to "0.1.0", "adapter_address" to address,
+        buffered = BufferedOutputStream(stream, 32768)
+        event("session_start", "schema" to 1, "app_version" to "2.0.0", "adapter_address" to address,
             "adapter_name" to name, "demo" to demo, "phone" to "${Build.MANUFACTURER} ${Build.MODEL}",
             "android" to Build.VERSION.RELEASE, "sdk" to Build.VERSION.SDK_INT,
-            "vehicle" to "Hyundai Tucson TL 2018 pre-facelift 1.7D dry DCT")
+            "vehicle" to "Hyundai Tucson TL 2018 pre-facelift 1.7D dry DCT", "durability_interval_ms" to 500)
+        syncer.scheduleWithFixedDelay({
+            try { sync() } catch (e: Exception) { writeFailure = e }
+        }, 500, 500, TimeUnit.MILLISECONDS)
     }
     @Synchronized fun event(type: String, vararg fields: Pair<String, Any?>) {
         if (closed) return
+        writeFailure?.let { throw java.io.IOException("Recording storage failed", it) }
         val obj = JSONObject().put("seq", ++seq).put("wall_ms", System.currentTimeMillis())
             .put("mono_ns", SystemClock.elapsedRealtimeNanos()).put("elapsed_ns", SystemClock.elapsedRealtimeNanos() - start)
             .put("type", type)
         fields.forEach { (k,v) -> obj.put(k, v ?: JSONObject.NULL) }
-        stream.write((obj.toString() + "\n").toByteArray(Charsets.UTF_8))
-        stream.flush()
-        // Persist each event; a killed process still leaves an analysable JSONL prefix.
-        stream.fd.sync()
+        buffered.write((obj.toString() + "\n").toByteArray(Charsets.UTF_8))
+        if (type in setOf("session_start", "marker", "guide_step", "session_end")) sync()
+    }
+    @Synchronized private fun sync() {
+        if (!closed) { buffered.flush(); stream.fd.sync() }
     }
     @Synchronized fun close(reason: String) {
         if (closed) return
-        event("session_end", "reason" to reason)
-        closed = true
-        stream.close()
+        try { event("session_end", "reason" to reason) }
+        finally { closed = true; syncer.shutdownNow(); buffered.close() }
     }
 }
