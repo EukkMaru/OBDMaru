@@ -14,7 +14,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.UUID
 
-class SessionLog(context: Context, address: String, name: String, demo: Boolean) {
+class SessionLog(context: Context, address: String, name: String, demo: Boolean, appVersion: String = "2.0.0") {
     val file: File
     private val stream: FileOutputStream
     private val buffered: BufferedOutputStream
@@ -29,7 +29,7 @@ class SessionLog(context: Context, address: String, name: String, demo: Boolean)
         file = File(dir, "$stamp-${UUID.randomUUID().toString().take(8)}.jsonl")
         stream = FileOutputStream(file, true)
         buffered = BufferedOutputStream(stream, 32768)
-        event("session_start", "schema" to 1, "app_version" to "2.0.0", "adapter_address" to address,
+        event("session_start", "schema" to 1, "app_version" to appVersion, "adapter_address" to address,
             "adapter_name" to name, "demo" to demo, "phone" to "${Build.MANUFACTURER} ${Build.MODEL}",
             "android" to Build.VERSION.RELEASE, "sdk" to Build.VERSION.SDK_INT,
             "vehicle" to "Hyundai Tucson TL 2018 pre-facelift 1.7D dry DCT", "durability_interval_ms" to 500)

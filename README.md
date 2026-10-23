@@ -62,3 +62,7 @@ Summary includes outcomes, discovery, errors, guide windows, speech events and m
 Logs may contain VIN, identifiers, Bluetooth address and driving telemetry. Captures stay local until exported and are ignored by Git. Android TTS is a separate system service; install an offline voice if desired. The recorder itself has no Internet permission.
 
 The GitHub Pages site serves public installation instructions from `/docs`, with the APK stored in GitHub Releases. No drive recordings are hosted. See [diagnostic sources](docs/diagnostics.md), [log format](docs/log-format.md), [verification](docs/verification.md) and [third-party notices](THIRD_PARTY.md). Source mappings and plausible correlations are not independent sensor validation.
+
+## Watcher app
+
+A separately installable portrait raw-byte monitor for the 20 observed unknown blocks, with live bars, ZERO/NONZERO indicators, bit inspection, 5/10 Hz targets and measured sample rates. [Usage and rate limits](docs/watcher.md). Build with `./gradlew :watcher:assembleDebug`.
