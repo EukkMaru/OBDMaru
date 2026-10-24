@@ -11,7 +11,7 @@ class DashboardSmokeTest {
   InstrumentationRegistry.getInstrumentation().uiAutomation.grantRuntimePermission(ctx.packageName, android.Manifest.permission.BLUETOOTH_CONNECT)
   ctx.startForegroundService(Intent(ctx,DashboardService::class.java).putExtra("demo",true))
   try {
-   await{DashboardService.state.samples.size==3 && DashboardService.state.samples["tcm"]!!.hz>2}
+   await{DashboardService.state.samples.size==4 && DashboardService.state.samples["tcm"]!!.hz>7 && DashboardService.state.samples["speed"]!!.hz>2 && DashboardService.state.samples["clutch"]!!.hz>0.5}
    val state=DashboardService.state;assertTrue(state.demo)
    val t=Telemetry.transmission(state.samples["tcm"]!!.bytes)
    assertNotNull(t.clutch1);assertNotNull(t.clutch2);assertNotNull(t.gas)
@@ -21,7 +21,7 @@ class DashboardSmokeTest {
   assertTrue(DashboardService.state.samples.isEmpty())
   val file=DashboardService.lastFile!!
   val log=ctx.contentResolver.openInputStream(Uri.parse("content://dev.obdmaru.dashboard.logs/${file.name}"))!!.bufferedReader().use{it.readText()}
-  assertTrue(log.contains("dashboard_demo_sample"));assertTrue(log.contains("dashboard-0.1.0"))
+  assertTrue(log.contains("dashboard_demo_sample"));assertTrue(log.contains("dashboard-0.1.1"))
  }
  private fun await(test:()->Boolean){val end=SystemClock.elapsedRealtime()+12000;while(!test()&&SystemClock.elapsedRealtime()<end)Thread.sleep(50);assertTrue("Timed out",test())}
 }

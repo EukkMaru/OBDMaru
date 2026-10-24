@@ -91,6 +91,36 @@ class BluetoothElm(private val log: SessionLog, private val active: () -> Boolea
             throw e
         } finally { request = null }
     }
+    /** Abort a stuck read, drain through a quiet boundary, then require a fresh identity reply.
+     * A late diagnostic prompt alone must never count as successful recovery.
+     * Existing recorder/watcher behavior is unchanged unless they call this method.
+     */
+    @Synchronized fun recoverPrompt(): Boolean {
+        if (!active()) return false
+        return try {
+            val s = socket ?: return false
+            log.event("adapter_resync_start")
+            val wire = "\r".toByteArray(Charsets.US_ASCII)
+            log.event("adapter_resync_tx", "base64" to Base64.encodeToString(wire, Base64.NO_WRAP))
+            s.outputStream.write(wire); s.outputStream.flush()
+            val deadline = SystemClock.elapsedRealtime() + 1500
+            var prompt = false
+            var quiet = false
+            while (active() && SystemClock.elapsedRealtime() < deadline) {
+                val chunk = queue.poll(100, TimeUnit.MILLISECONDS)
+                if (chunk == null) { if (prompt) { quiet = true; break }; continue }
+                if (chunk.error != null) return false
+                if (chunk.bytes?.toString(Charsets.US_ASCII)?.contains('>') == true) prompt = true
+            }
+            if (!prompt || !quiet || !active()) return false
+            val identity = query("ATI", "adapter_resync", 2000).uppercase()
+            val clean = listOf("ELM", "OBD", "STN").any { identity.contains(it) }
+            log.event("adapter_resync_end", "success" to clean)
+            clean
+        } catch (e: Exception) {
+            log.event("adapter_resync_error", "error" to e.toString()); false
+        }
+    }
     override fun close() { try { socket?.close() } catch (_: Exception) {} }
     companion object { private val ids = AtomicLong(); val SPP: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB") }
 }

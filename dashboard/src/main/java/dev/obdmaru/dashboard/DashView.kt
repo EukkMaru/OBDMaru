@@ -16,7 +16,8 @@ class DashView(context: Context):View(context) {
   val scale=minOf(width/360f,height/530f);c.save();c.translate((width-360*scale)/2,0f);c.scale(scale,scale)
   val state=DashboardService.state;val now=SystemClock.elapsedRealtime()
   fun sample(key:String,age:Long)=state.samples[key]?.takeIf { DashboardService.running && Telemetry.fresh(it.at,now,age) }
-  val ts=sample("tcm",1500);val bs=sample("brake",1500);val ss=sample("speed",3000)
+  val ts=sample("tcm",1500);val bs=sample("brake",1500);val ss=sample("speed",1500)
+  val cs=sample("clutch",2500);val ct=cs?.let {Telemetry.transmission(it.bytes)}
   val t=ts?.let {Telemetry.transmission(it.bytes)};val b=bs?.let {Telemetry.brake(it.bytes)}
   text(c,if(state.demo)"SYNTHETIC DEMO" else "LIVE TELEMETRY · EXPERIMENTAL",12f,22f,12f,cyan,true)
   text(c,"GEAR",12f,50f,12f,muted);text(c,"SPEED",190f,50f,12f,muted)
@@ -41,10 +42,10 @@ class DashView(context: Context):View(context) {
    text(c,"${number(value)}${if(value!=null)"°C" else ""}",x+12,431f,34f,white,true)
    text(c,"Provisional OBDb mapping",x+12,449f,10f,muted)
   }
-  clutch(12f,"CLUTCH 1",t?.clutch1);clutch(186f,"CLUTCH 2",t?.clutch2)
+  clutch(12f,"CLUTCH 1",ct?.clutch1);clutch(186f,"CLUTCH 2",ct?.clutch2)
   fun stat(name:String,s:Sample?)=if(s==null)"$name —"else String.format(Locale.US,"%s %.1fHz %dms",name,s.hz,now-s.at)
   text(c,stat("U19",ts)+" · "+stat("U03",bs),12f,484f,11f,muted)
-  text(c,stat("Speed",ss)+" · missing/stale readings show —",12f,502f,10f,muted)
+  text(c,stat("Speed",ss)+" · "+stat("Clutch",cs),12f,502f,10f,muted)
   text(c,state.status.take(55),12f,523f,11f,cyan)
   c.restore()
  }

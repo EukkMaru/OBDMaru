@@ -1,4 +1,4 @@
-# OBDMaru Dash 0.1.0
+# OBDMaru Dash 0.1.1
 
 A primitive portrait F1-style telemetry display, installed separately as `dev.obdmaru.dashboard` alongside Magic and Watcher. No cruise interpretation is included.
 
@@ -23,10 +23,16 @@ All b-indices are zero-based after removing response service/identifier. Clutch 
 
 ## Timing and logs
 
-The serial scheduler targets U19 and U03 about every 200 ms (5 Hz each), with standard speed every 1 second. Header switches and adapter/ECU response times reduce achieved rates. On-screen per-channel Hz and sample ages show actual performance; no interpolation conceals sparse input. U19/U03 expire after 1.5 seconds, speed after 3 seconds. Failed/short replies clear only the affected sample; transport faults clear all samples and reconnect. Rejected channels retry after 2 seconds. Fixed protocol: CAN 11-bit 500 kbit/s, as in the earlier real capture.
+The serial scheduler targets U19 and U03 every 100 ms (10 Hz each), with standard speed every 333 ms (approximately 3 Hz). U19 includes throttle, gear **and** clutch temperatures in one ECU reply: the clutch display is updated from that stream only once per second, with no extra temperature request. Header switches and adapter/ECU response times reduce achieved rates. These are targets, not guaranteed bandwidth. On-screen per-channel Hz and sample ages show actual performance; no catch-up bursts or interpolation conceal sparse input. U19/U03/speed expire after 1.5 seconds; the 1 Hz clutch sample expires after 2.5 seconds. Fixed protocol: CAN 11-bit 500 kbit/s, as in the earlier real capture.
+
+Failed, rejected or short replies remove only the affected sample (a U19 failure also clears its clutch display) and back off that channel for 1–5 seconds while others continue. A query/header I/O failure first attempts an adapter resync over the existing Bluetooth socket: send a carriage return to abort, drain through an ELM prompt plus a quiet boundary, then require a fresh recognizable `ATI` identity reply. A late diagnostic prompt alone is not sufficient. If resync fails, close the socket and retry Bluetooth after two seconds, alternating secure/insecure SPP and reapplying settings. Successful reconnections avoid repeated `ATZ` reboots; optional `ATPC` rejection is tolerated. Existing samples retain their original timestamps and age out, rather than being relabeled as fresh. The status and raw logs identify the failed stage and recovery path.
+
+Watcher held one selected header; Dash must change between transmission, ABS and standard OBD requests. Dash 0.1.0 also treated every request timeout as a Bluetooth disconnect, clearing every sample and resetting the adapter on reconnect. The changes address that fragile recovery behavior; without the failing session log, they do not establish why this particular adapter stopped responding after about three seconds.
 
 Exact real TX/RX and request outcomes are recorded through the shared transport. Mapping metadata and channel query phases are retained. Synthetic demo uses separate `dashboard_demo_sample` events and does not fabricate Bluetooth traffic. Logs remain private until shared.
 
 ## Build and verification
 
 Build with `./gradlew :dashboard:assembleDebug`. JVM tests cover unsigned raw data, pedal endpoints, brake overflow, gear nibble masking, two-byte temperature conversion, short payloads and freshness. The Android instrumentation test exercises all three synthetic streams and completed-log export. Emulator tests do not establish actual Bluetooth throughput or physical signal calibration. Android 12+, experimental debug-signed APK.
+
+Version 0.1.1: nine JVM tests cover decoding, target rates, the independent 1 Hz clutch display, rejected reads, timeout resync, broken-socket reconnect, header failure, and setup retry. Existing recorder and Watcher JVM tests are also run. This update is verified with a simulated adapter; no real-vehicle disconnect/reconnect reproduction has been performed. The Android smoke test is updated, but was not rerun on an emulator for this update.
