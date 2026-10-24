@@ -28,6 +28,16 @@ class SessionTests(unittest.TestCase):
             path = Path(d)/"capture.jsonl"
             path.write_text("\n".join(json.dumps(e) for e in self.fixture()) + '\n{"type":')
             self.assertEqual(session.load(path), self.fixture())
+    def test_guide_intentions_and_observations_stay_separate(self):
+        events = self.fixture() + [
+            dict(type="guide_step", elapsed_ns=40, stage="departure_setup", expected_before="P", expected_after="D; parking brake released", driver_action_confirmed=False),
+            dict(type="guide_control_observation", elapsed_ns=50, source="7E1/2201A4", values={"b21": 8}, parking_brake_known=False),
+        ]
+        report = session.summarize(events)
+        self.assertFalse(report["guide_steps"][0]["driver_action_confirmed"])
+        self.assertEqual(report["guide_steps"][0]["expected_after"], "D; parking brake released")
+        self.assertEqual(report["guide_control_observation_counts"], {"7E1/2201A4": 1})
+
     def test_interior_corruption_is_not_silently_dropped(self):
         with tempfile.TemporaryDirectory() as d:
             path = Path(d)/"capture.jsonl"

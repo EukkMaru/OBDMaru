@@ -42,3 +42,11 @@ Schema stays 1; `app_version` is `2.0.0`. `session_start.durability_interval_ms`
 - `speech_queued`, `speech_started`, `speech_finished`, `speech_error`: TTS engine lifecycle, correlated by utterance ID. Callback timestamps show actual speech playback more precisely than step entry; they do not establish driver response time.
 - `guide_pause`, `guide_skipped`, `guide_wait`: manual pause or contextual wait/skip evidence.
 - `guide_complete`: sequence ended while `capture_continues` is true. The recording's real end is still `session_end`.
+
+## Magic 2.0.1 guided control continuity
+
+`app_version` is `2.0.1`. `guide_plan` includes `guide_version`, `completion_words`, `timers_wait_for_speech`, `parking_brake_observable=false` and `cruise_state_observable=false`. Each plan step and `guide_step` adds `expected_before`/`expected_after`: these are requested states, never confirmations.
+
+`guide_control_observation` records the response source, sample completion time and raw owner-observed candidate fields: U19 b07/b08, b21/b22, b23/b24 and b26, plus masked gear/brake candidates; U03 b32/b33 are preserved independently. These events continue after guide completion until recording stops and do not claim parking-brake or cruise knowledge. Raw TX/RX remains the authoritative recording.
+
+Speech callbacks now include `speech_stopped`. Observation-window clocks pause while the current prompt is queued/speaking. Actual `speech_started`/`speech_finished` timestamps remain distinct from instruction issuance and observed controls. Session summaries retain the requested before/after states and observation counts by source.

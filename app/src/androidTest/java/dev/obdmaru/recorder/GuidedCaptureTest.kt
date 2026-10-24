@@ -47,8 +47,10 @@ class GuidedCaptureTest {
             until("stop saves footer") { !CaptureService.running && f.readText().contains("session_end") }
             val e=f.readLines().map { JSONObject(it) }
             assertTrue(e.first().getBoolean("demo"))
-            assertEquals("2.0.0",e.first().getString("app_version"))
+            assertEquals("2.0.1",e.first().getString("app_version"))
             assertTrue(e.any { it.optString("type")=="guide_plan" && it.getBoolean("prompt_is_not_action") })
+            assertTrue(e.first { it.optString("type")=="guide_plan" }.getBoolean("timers_wait_for_speech"))
+            assertTrue(e.first { it.optString("type")=="guide_plan" }.getJSONArray("steps").getJSONObject(0).has("expected_before"))
             assertTrue(e.any { it.optString("type")=="poll_plan" && it.optString("mode")=="GUIDED" })
             assertFalse(e.any { it.optString("type")=="capture_error" })
             assertEquals("stopped",e.last().getString("reason"))

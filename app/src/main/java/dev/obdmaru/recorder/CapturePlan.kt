@@ -57,6 +57,7 @@ class CapturePlan(private val elm: ElmTransport, private val log: SessionLog,
         if (can11) {
             task("7E1", "2201A4", if (mode == CaptureMode.GUIDED) 400 else 600)
             task("7E1", "2201A5", 1500)
+            if (mode == CaptureMode.GUIDED) task("7D1", "22C101", 400)
             task("7E0", "22ED06", if (mode == CaptureMode.GUIDED) 600 else 1500)
             task("7E0", "22ED04", if (mode == CaptureMode.GUIDED) 1800 else 4000)
             task("7E0", "22ED05", 3500)
@@ -98,6 +99,14 @@ class CapturePlan(private val elm: ElmTransport, private val log: SessionLog,
             val completed = now()
             log.event("sample_classification", "source" to job.key, "positive" to positive, "all_zero_data" to zero,
                 "diagnostic_data_bytes" to data?.size, "mode" to mode.name, "elapsed_ms" to completed-sent)
+            if (mode == CaptureMode.GUIDED && data != null) {
+                ControlObservation.fields(job.header,job.command,data)?.let { fields ->
+                    log.event("guide_control_observation", "source" to job.key,
+                        "sample_completed_ms" to completed, "values" to org.json.JSONObject(fields),
+                        "meaning" to "raw owner-observed candidates; not confirmation of instructed actions",
+                        "parking_brake_known" to false, "cruise_state_known" to false)
+                }
+            }
             // Judge only standardized speed/pedal readings, not inferred brake or cruise bits.
             if (data != null && job.command.startsWith("01")) {
                 val a = data.getOrNull(0)?.toInt()?.and(255)

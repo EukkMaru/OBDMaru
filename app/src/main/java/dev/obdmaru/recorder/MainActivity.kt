@@ -57,7 +57,7 @@ class MainActivity : Activity() {
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(28, 32, 28, 24); setBackgroundColor(Color.rgb(12,20,28)) }
         fun text(s: String, size: Float = 16f) = TextView(this).apply { text = s; textSize = size; setTextColor(Color.rgb(215,233,235)); setPadding(0,12,0,12); root.addView(this) }
         fun button(s: String, action: () -> Unit) = Button(this).apply { text=s; setOnClickListener { action() }; root.addView(this) }
-        text("OBDMaru / MAGIC 2.0", 26f)
+        text("OBDMaru / MAGIC 2.0.1", 26f)
         text("2018 Tucson TL · 1.7D · dry DCT\nRaw capture, including failed requests. Configure while parked.")
         status = text("Ready", 15f)
         modeSpinner = Spinner(this)
@@ -71,7 +71,7 @@ class MainActivity : Activity() {
         }
         button("Read the full guided route") {
             AlertDialog.Builder(this).setTitle("Guided route · optional actions")
-                .setMessage(GuidePlan.steps.mapIndexed { i, step -> "${i+1}. ${step.id.replace('_',' ')} (${step.seconds}s eligible time)\n${step.words}" }.joinToString("\n\n"))
+                .setMessage(GuidePlan.steps.mapIndexed { i, step -> "${i+1}. ${step.id.replace('_',' ')} (${step.seconds}s eligible time)\n${step.words}" }.joinToString("\n\n") + "\n\nCompletion and parking:\n" + GuidePlan.COMPLETION)
                 .setPositiveButton("Close",null).show()
         }
         deviceSpinner = Spinner(this); root.addView(deviceSpinner)
@@ -153,7 +153,7 @@ class MainActivity : Activity() {
         val mode = if (modeSpinner.selectedItemPosition == 1) CaptureMode.GUIDED else CaptureMode.MAGIC
         if (mode == CaptureMode.GUIDED && !demo) {
             AlertDialog.Builder(this).setTitle("Start while parked")
-                .setMessage("Car parked in P, parking brake on, engine idling. Test the voice first and wait for the first instruction. This optional route assumes a suitable 90 km/h road; actual limits and conditions always take priority. Brief strong inputs and adjacent shifts are optional. All phone controls are for a passenger or when parked. Recording continues after the last prompt.")
+                .setMessage("Car safely parked on level ground in P, parking brake on, engine idling. The guide explicitly tells you when to select D and release the parking brake. Test the voice first and wait for the first instruction. This optional route assumes a suitable 90 km/h road; actual limits and conditions always take priority. Brief strong inputs and adjacent shifts are optional. All phone controls are for a passenger or when parked. Recording continues after the last prompt.")
                 .setPositiveButton("Start guided capture") { _,_ -> beginCapture(demo,device,mode) }
                 .setNegativeButton("Cancel",null).show()
         } else beginCapture(demo,device,mode)

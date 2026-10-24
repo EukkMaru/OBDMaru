@@ -70,3 +70,9 @@ A separately installable portrait raw-byte monitor for the 20 observed unknown b
 ## Dashboard app
 
 [OBDMaru Dash](docs/dashboard.md) is a separate portrait F1-style prototype with standard OBD speed, gear, provisional pedal bars and clutch temperatures. Includes synthetic demo, sample freshness and raw logs. Build with `./gradlew :dashboard:assembleDebug`.
+
+## Magic 2.0.1: continuous control instructions
+
+The 28-stage guide explicitly covers the parked setup, cruise master on/off while parked, holding the foot brake to select D and release/check the parking brake, departure, separate moving cruise operations, pedal windows, adjacent manual shifts, return to D, and the full final parking sequence. There are 17 minutes of observation windows, plus speech/waiting time. Observation timers wait for speech completion. Full words appear in the in-app route preview and project page.
+
+Each prompt logs expected-before/after states as intentions. Timestamped `guide_control_observation` events retain U19 selector, mode, gear, pedal and brake-switch candidates, and independent U03 brake-strength bytes. Guided mode prioritizes U03 captures. Parking-brake and cruise state are explicitly unknown; neither prompt playback nor elapsed time confirms an action.

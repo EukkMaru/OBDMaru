@@ -58,4 +58,33 @@ class GuideRunnerTest {
         assertTrue(GuidePlan.steps.filter { !it.moving }.all { it.words.contains("accelerator",true) })
         assertEquals(60,GuidePlan.steps.first { it.id=="brief_full_gas" }.maxKph)
     }
+
+    @Test fun departureExplicitlyReleasesParkingBrakeBeforePedalDeparture() {
+        val setup=GuidePlan.steps.first{it.id=="departure_setup"}
+        assertFalse(setup.moving)
+        val brake=setup.words.indexOf("Press and hold the foot brake")
+        val drive=setup.words.indexOf("select D")
+        val release=setup.words.indexOf("Release the parking brake")
+        assertTrue(brake>=0 && drive>brake && release>drive)
+        assertTrue(setup.expectedAfter.contains("foot brake held"))
+        assertTrue(GuidePlan.steps.indexOf(setup)<GuidePlan.steps.indexOfFirst{it.id=="depart_60"})
+    }
+    @Test fun cruiseAndManualTransitionsHaveSeparateWindowsAndFullParkingClosure() {
+        val ids=GuidePlan.steps.map{it.id}
+        val controls=listOf("parked_cruise_on","parked_cruise_off","departure_setup","cruise_ready","cruise_60","cruise_70","brake_cancel","cruise_resume","cruise_button_cancel","cruise_master_off","manual_prepare","return_to_d","normal_finish")
+        assertEquals(controls,ids.filter{it in controls})
+        assertTrue(GuidePlan.steps.all{it.expectedBefore.isNotBlank()&&it.expectedAfter.isNotBlank()})
+        val closure=GuidePlan.COMPLETION
+        assertTrue(closure.indexOf("complete stop")<closure.indexOf("select P"))
+        assertTrue(closure.indexOf("apply the parking brake")<closure.indexOf("release the foot brake"))
+    }
+    @Test fun speechWaitCannotConsumeAWindowOrCreateAccumulatedTimeOnResume() {
+        val g=GuideRunner(listOf(GuideStep("park",2,false,"Observe")))
+        assertNotNull(g.tick(0,0))
+        repeat(20){g.tick((it+1)*1000L,0,countTime=false)}
+        assertEquals(2,g.remainingSeconds());assertFalse(g.done)
+        g.tick(20100,0);assertFalse(g.done)
+        g.tick(21100,0);assertFalse(g.done)
+        g.tick(22100,0);assertTrue(g.done)
+    }
 }

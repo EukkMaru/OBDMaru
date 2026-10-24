@@ -26,3 +26,12 @@ python3 -m unittest discover -s tools -v
 - Old release and new APK signing certificates match. Installing v2 over v0.1.0 on the emulator preserved a file in the app's private storage.
 
 This does not validate hardware throughput, physical signal meanings, audible voice routing on the S23+, or completion of driving actions. Android TTS must have a usable English voice and be checked with the app's voice-test button. Guidance timestamps and speech callbacks document instructions, not ground-truth driver behavior. Actual per-source polling intervals are measured in each recording; configured intervals are targets.
+
+## Magic 2.0.1 control continuity update
+
+- 28 guide stages with 1,020 seconds of eligible observation windows, plus speech/waiting time. Exact words and intended before/after states are embedded in each log.
+- Explicit parked cruise checks, foot-brake/D/parking-brake departure handoff, separate moving cruise controls, conditional adjacent manual shifts, return to D and complete final parking instructions.
+- Observation clocks wait for TTS completion; speech errors pause guidance while raw recording continues.
+- 26 JVM tests pass, including transition ordering, speech-time accounting and raw candidate observations; 5 Python replay/summary tests pass.
+- Android app and instrumented-test APKs compile; lint has no errors. No emulator or vehicle run performed for this update. Physical audio output and the full real drive still need verification on the phone.
+- Build uses persistent disk storage, one Gradle worker, 768 MiB Gradle heap and no retained daemon. No emulator or large files are placed in /tmp.

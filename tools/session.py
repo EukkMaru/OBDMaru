@@ -47,8 +47,10 @@ def summarize(events):
     return {
         "capture_mode": next((e.get("capture_mode") for e in events if e["type"] == "plan"), None),
         "guide_steps": [{"stage": e.get("stage"), "elapsed_seconds": e["elapsed_ns"] / 1e9,
-                         "driver_action_confirmed": e.get("driver_action_confirmed", False)}
+                         "driver_action_confirmed": e.get("driver_action_confirmed", False),
+                         "expected_before": e.get("expected_before"), "expected_after": e.get("expected_after")}
                         for e in events if e["type"] == "guide_step"],
+        "guide_control_observation_counts": dict(collections.Counter(e.get("source") for e in events if e["type"] == "guide_control_observation")),
         "guide_complete": any(e["type"] == "guide_complete" for e in events),
         "speech_events": dict(collections.Counter(e["type"] for e in events if e["type"].startswith("speech_"))),
         "measured_poll_intervals": interval_stats,

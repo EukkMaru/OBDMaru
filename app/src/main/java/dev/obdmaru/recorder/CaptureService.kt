@@ -59,15 +59,17 @@ class CaptureService : Service() {
             try {
                 wake = getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "OBDMaru:capture")
                     .apply { acquire(2 * 60 * 60 * 1000L) }
-                val session = SessionLog(this, address, name, demo)
+                val session = SessionLog(this, address, name, demo, "2.0.1")
                 log = session; currentFile = session.file
                 speaker?.log = session
                 session.event("plan", "capture_mode" to if (guided) "GUIDED" else "MAGIC", "minimum_gap_ms" to 15,
                     "scope" to "prioritized fast signals plus finite read-only discovery", "speech_state" to speaker?.state)
-                if (guided) session.event("guide_plan", "assumed_limit_kph" to 90, "prompt_is_not_action" to true,
+                if (guided) session.event("guide_plan", "assumed_limit_kph" to 90, "prompt_is_not_action" to true, "guide_version" to GuidePlan.VERSION,
+                    "timers_wait_for_speech" to true, "completion_words" to GuidePlan.COMPLETION, "parking_brake_observable" to false, "cruise_state_observable" to false,
                     "steps" to org.json.JSONArray(GuidePlan.steps.map { step -> org.json.JSONObject()
                         .put("id", step.id).put("duration_s",step.seconds).put("moving",step.moving)
-                        .put("max_prompt_speed_kph",step.maxKph).put("words",step.words) }))
+                        .put("max_prompt_speed_kph",step.maxKph).put("words",step.words)
+                        .put("expected_before",step.expectedBefore).put("expected_after",step.expectedAfter) }))
                 val probeJson = org.json.JSONArray(assets.open("extended-probes.json").bufferedReader().use { it.readText() })
                 val probes = (0 until probeJson.length()).map { probeJson.getJSONObject(it).let { row -> row.getString("header") to row.getString("command") } }
                 session.event("extended_plan", "probes" to probeJson)
@@ -163,7 +165,7 @@ class CaptureService : Service() {
         if (runner.done) {
             if (!guideCompletedLogged) {
                 session.event("guide_complete", "capture_continues" to true)
-                speaker?.say("The guided sequence is complete. Keep driving normally. Recording continues. Stop and save when you are parked.", "complete")
+                speaker?.say(GuidePlan.COMPLETION, "complete")
                 guideCompletedLogged = true
             }
             guideText = "Guide complete · recording continues until you stop while parked."
@@ -175,13 +177,13 @@ class CaptureService : Service() {
         }
         val time = SystemClock.elapsedRealtime()
         val speed = if (!guidePaused && time-latest.speedAtMs < 5000) latest.speedKph else null
-        val step = runner.tick(time,speed)
+        val step = runner.tick(time,speed,countTime = speaker?.speaking != true)
         runner.takeAutomaticSkip()?.let {
             session.event("guide_skipped", "stage" to it, "reason" to "No suitable lower-speed window within 75 seconds")
             speaker?.say("We are skipping the optional stronger input window. Continue normally.","automatic_skip")
         }
         val waiting = runner.current
-        if (!guidePaused && runner.paused && waiting?.maxKph != null && speed != null && speed > waiting.maxKph && announcedWait != waiting.id) {
+        if (!guidePaused && speaker?.speaking != true && runner.paused && waiting?.maxKph != null && speed != null && speed > waiting.maxKph && announcedWait != waiting.id) {
             speaker?.say("The next optional pedal window waits for a naturally lower pace. Keep driving normally; do not slow down just for this test. It will be skipped if no suitable opportunity appears.","waiting_"+waiting.id)
             session.event("guide_wait", "stage" to waiting.id, "reason" to "speed headroom", "speed_kph" to speed)
             announcedWait = waiting.id
@@ -189,13 +191,14 @@ class CaptureService : Service() {
         if (step != null) {
             session.event("guide_step", "index" to runner.index, "stage" to step.id, "words" to step.words,
                 "intended_window_s" to step.seconds, "driver_action_confirmed" to false,
+                "expected_before" to step.expectedBefore, "expected_after" to step.expectedAfter,
                 "speed_kph" to latest.speedKph)
             speaker?.say(step.words,step.id)
         }
         val current = runner.current
         guideText = if (guidePaused) "Guide paused · raw recording continues" else if (current == null) "Finishing guide…" else
             "${runner.index+1}/${GuidePlan.steps.size} · ${current.id.replace('_',' ')} · ${runner.remainingSeconds()}s" +
-            if (runner.paused) " · waiting for suitable movement/speed data" else "\n${current.words}"
+            if (runner.paused) if (speaker?.speaking == true) " · speaking; observation timer waits" else " · waiting for suitable movement/speed data" else "\n${current.words}"
     }
     private fun stopCapture() {
         if (!active) return
