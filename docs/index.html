@@ -19,6 +19,12 @@
 <section class="mode"><h3>Magic · broad capture</h3><p>Start once and take an ordinary drive. Priority requests for motion, pedals and transmission data run alongside standard discovery and a finite set of Hyundai read requests. Zero-only readings are revisited less often.</p><p>No driving script or voice prompts.</p></section>
 <section class="mode"><h3>Guided · spoken sequence</h3><p>Start while parked. Spoken instructions begin automatically after connection checks. The sequence covers parked brake patterns, progressive pedal inputs, cruise at 60/70 where appropriate, and adjacent manual shifts.</p><p>The guide finishes; recording keeps running until you park and stop it.</p></section>
 </div>
+<section class="mode" style="margin-top:24px"><h2 style="margin-top:0">Dashboard · primitive F1-style display</h2>
+<p>Large gear and speed readouts, live throttle and relative brake bars, and two provisional clutch temperatures. A separate app alongside Magic and Watcher, with synthetic demo, raw logs and per-channel sample freshness.</p>
+<a class="download" href="https://github.com/EukkMaru/OBDMaru/releases/download/dashboard-v0.1.0/OBDMaru-Dash-v0.1.0.apk">Download Dashboard APK</a>
+<a href="https://github.com/EukkMaru/OBDMaru/blob/main/docs/dashboard.md">Dashboard instructions and mappings</a>
+<p><img src="dashboard-demo.png" alt="Dashboard portrait screen showing synthetic speed, gear, pedal bars and clutch temperatures" style="width:100%;max-width:300px;border-radius:12px" loading="lazy"></p>
+<p class="muted">Brake 100% is the observed raw-140 reference; larger readings remain visible numerically. Pedal and clutch interpretations are provisional. Stop other OBD apps before connecting.</p></section>
 <section class="mode" style="margin-top:24px"><h2 style="margin-top:0">New: Watcher · live unknown bytes</h2>
 <p>A separate portrait app alongside Magic. Choose one of the 20 unknown blocks and watch every byte as a 0–255 bar, decimal/hex value and ZERO/NONZERO indicator. Target 5 or 10 Hz, with the actual sample rate and freshness visible. Includes synthetic demo, bit inspection and raw log export.</p>
 <a class="download" href="https://github.com/EukkMaru/OBDMaru/releases/download/watcher-v0.1.0/OBDMaru-Watcher-v0.1.0.apk">Download Watcher APK</a>

@@ -4,3 +4,5 @@ rootProject.name = "OBDMaru"
 include(":app")
 
 include(":watcher")
+
+include(":dashboard")

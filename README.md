@@ -66,3 +66,7 @@ The GitHub Pages site serves public installation instructions from `/docs`, with
 ## Watcher app
 
 A separately installable portrait raw-byte monitor for the 20 observed unknown blocks, with live bars, ZERO/NONZERO indicators, bit inspection, 5/10 Hz targets and measured sample rates. [Usage and rate limits](docs/watcher.md). Build with `./gradlew :watcher:assembleDebug`.
+
+## Dashboard app
+
+[OBDMaru Dash](docs/dashboard.md) is a separate portrait F1-style prototype with standard OBD speed, gear, provisional pedal bars and clutch temperatures. Includes synthetic demo, sample freshness and raw logs. Build with `./gradlew :dashboard:assembleDebug`.
