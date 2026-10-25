@@ -36,4 +36,20 @@ class TelemetryTest {
   assertTrue(display(40)-display(0)>display(80)-display(40))
   assertTrue((1..255).all{display(it)>display(it-1)})
  }
+
+ @Test fun standardEngineRpmUsesBothUnsignedBytesAndQuarterRpmUnits() {
+  assertEquals(1726.0,Telemetry.rpm(byteArrayOf(0x1A,0xF8.toByte()))!!,0.001)
+  assertEquals(0.0,Telemetry.rpm(byteArrayOf(0,0))!!,0.001)
+  assertEquals(16383.75,Telemetry.rpm(byteArrayOf(-1,-1))!!,0.001)
+  assertNull(Telemetry.rpm(byteArrayOf(1)))
+ }
+ @Test fun indicatorDefinitionUsesMsbOffsetsAndKeepsUnavailableSeparateFromOff() {
+  fun lights(raw:Int)=Telemetry.indicators(ByteArray(5).apply{this[4]=raw.toByte()})!!
+  assertFalse(lights(0).left);assertFalse(lights(0).right)
+  assertTrue(lights(2).left);assertFalse(lights(2).right)
+  assertFalse(lights(4).left);assertTrue(lights(4).right)
+  assertTrue(lights(6).left);assertTrue(lights(6).right)
+  assertFalse(lights(0xC0).left);assertFalse(lights(0xC0).right)
+  assertEquals(6,lights(6).raw4);assertNull(Telemetry.indicators(ByteArray(4)))
+ }
 }

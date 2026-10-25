@@ -29,7 +29,7 @@ class DashboardPollingTest {
                     val logical=command.take(if(command.startsWith("01"))4 else 6)
                     if(logical==command)time+=finalWait
                     counts[logical]=(counts[logical]?:0)+1
-                    val data=when(logical){"2201A4"->ByteArray(34).apply{this[8]=(counts[logical]!!%255).toByte();this[30]=70;this[32]=75};"22C101"->ByteArray(39);else->byteArrayOf(50)}
+                    val data=when(logical){"2201A4"->ByteArray(34).apply{this[8]=(counts[logical]!!%255).toByte();this[30]=70;this[32]=75};"22C101"->ByteArray(39);"010C"->byteArrayOf(0x1A,0xF8.toByte());"22BC08"->ByteArray(5).apply{this[4]=6};else->byteArrayOf(50)}
                     val prefix=("%02X".format(logical.take(2).toInt(16)+64)+logical.drop(2)).chunked(2).map{it.toInt(16)}
                     val p=prefix+data.map{it.toInt() and 255}
                     val frames=if(p.size<=7)listOf(listOf(p.size)+p)else listOf(listOf(0x10,p.size)+p.take(6))+p.drop(6).chunked(7).mapIndexed{i,b->listOf(0x20+((i+1)%16))+b}
@@ -47,6 +47,8 @@ class DashboardPollingTest {
         assertTrue("counts=${r.counts} state=${r.state} events=${r.events}",r.counts.getValue("2201A4") in 57..61)
         assertTrue(r.counts.getValue("22C101") in 57..61)
         assertTrue(r.counts.getValue("010D") in 17..19)
+        assertTrue(r.counts.getValue("010C") in 28..31)
+        assertTrue(r.counts.getValue("22BC08") in 9..13)
         assertTrue(r.state.samples.getValue("tcm").hz in 9.5..10.5)
         assertTrue(r.state.samples.getValue("clutch").hz in 0.9..1.1)
         val previous=r.state.samples.getValue("clutch").at
@@ -131,5 +133,18 @@ class DashboardPollingTest {
         r.run(5000)
         assertEquals(1,r.opens);assertEquals(1,r.recoveries)
         assertTrue(r.commands.contains("ATSH7DF"));assertTrue(r.state.samples.containsKey("speed"))
+    }
+
+    @Test fun unsupportedIndicatorRequestBacksOffWithoutDisruptingMotionStreams(){
+        val r=Rig();r.fault={if(it=="22BC08")"778 03 7F 22 31\r>"else null};r.run(12000)
+        assertEquals(1,r.commands.count{it=="22BC08"});assertEquals(0,r.recoveries)
+        assertFalse(r.state.samples.containsKey("indicators"));assertTrue(r.state.availability.getValue("indicators").startsWith("Unavailable"))
+        assertTrue(r.counts.getValue("010C")>50);assertTrue(r.counts.getValue("2201A4")>100)
+    }
+    @Test fun rpmImmediatelyFollowsDueSpeedWithoutAnExtraHeaderChange(){
+        val r=Rig();r.run(2000)
+        val first=r.commands.indexOf("010D")
+        assertEquals("010C",r.commands[first+1])
+        assertTrue(r.state.samples.containsKey("rpm"));assertTrue(r.state.samples.containsKey("indicators"))
     }
 }

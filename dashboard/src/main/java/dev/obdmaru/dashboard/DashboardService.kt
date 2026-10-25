@@ -38,12 +38,13 @@ class DashboardService : Service() {
         var attempt = 0
         try {
             if (!demo) lease = ObdConnectionGuard.acquire(this)
-            log = SessionLog(this,address,"Dashboard",demo,"dashboard-0.1.4");lastFile=log.file
+            log = SessionLog(this,address,"Dashboard",demo,"dashboard-0.1.5");lastFile=log.file
             val session = log
             log.event("obd_connection_guard", "exclusive" to !demo, "demo" to demo)
             log.event("dashboard_start","tcm_target_hz" to 10,"brake_target_hz" to 10,"speed_target_hz" to 3,"clutch_display_hz" to 1,
+                "rpm_target_hz" to 5, "indicators_target_hz" to 2, "indicators_candidate" to true,
                 "brake_display_curve" to "square_root", "brake_raw_reference" to 150, "brake_display_exponent" to 0.5,
-                "mapping" to "U19 b08 pedal /254; U03 b32 brake display sqrt(raw/150)*100; U19 low nibble b23 gear; U19 b29:31 and b31:33 BE *2-40 provisional temperatures; standard 010D speed")
+                "mapping" to "U19 b08 pedal /254; U03 b32 brake display sqrt(raw/150)*100; U19 low nibble b23 gear; U19 b29:31 and b31:33 BE *2-40 provisional temperatures; standard 010D speed; standard 010C RPM /4; indicator candidate 770/22BC08 b04 masks 02 left,04 right")
             poller = DashboardPolling(
                 open = {
                     if(demo) demoLink(session) else {
@@ -77,12 +78,12 @@ class DashboardService : Service() {
             if(command.startsWith("AT"))return if(command=="ATZ")"ELM327 DEMO\r>"else "OK\r>"
             Thread.sleep(35)
             val logical=command.take(if(command.startsWith("01"))4 else 6)
-            val key=when(logical){"2201A4"->"tcm";"22C101"->"brake";else->"speed"}
+            val key=when(logical){"2201A4"->"tcm";"22C101"->"brake";"010C"->"rpm";"22BC08"->"indicators";else->"speed"}
             val bytes=demoBytes(key,SystemClock.elapsedRealtime())
             log.event("dashboard_demo_sample","channel" to key,"bytes" to org.json.JSONArray(bytes.map{it.toInt() and 255}))
             val prefix=("%02X".format(logical.take(2).toInt(16)+64)+logical.drop(2)).chunked(2).map{it.toInt(16)}
             val data=prefix+bytes.map{it.toInt() and 255}
-            val id=when(key){"tcm"->"7E9";"brake"->"7D9";else->"7E8"}
+            val id=when(key){"tcm"->"7E9";"brake"->"7D9";"indicators"->"778";else->"7E8"}
             val frames=if(data.size<=7)listOf(listOf(data.size)+data)else {
                 listOf(listOf(0x10 or (data.size shr 8),data.size and 255)+data.take(6))+data.drop(6).chunked(7).mapIndexed{i,b->listOf(0x20 or ((i+1)and 15))+b}
             }
@@ -102,6 +103,8 @@ class DashboardService : Service() {
                 this[26]=if(brake>.1)1 else 0;this[30]=(70+sin(phase*.07)*8).toInt().toByte();this[32]=(75+sin(phase*.09)*9).toInt().toByte()
             }
             "brake"->ByteArray(39).apply {this[32]=(brake*168).toInt().toByte();this[33]=(brake*162).toInt().toByte()}
+            "rpm"->{val raw=((850+gas*2700)*4).toInt();byteArrayOf((raw shr 8).toByte(),raw.toByte())}
+            "indicators"->ByteArray(5).apply{this[4]=if(now/500%2==0L)when(now/4000%3){0L->2;1L->4;else->6}else 0}
             else->byteArrayOf((45+35*sin(phase*.2)).toInt().toByte())
         }
     }

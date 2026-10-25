@@ -1,4 +1,4 @@
-# OBDMaru Dash 0.1.4
+# OBDMaru Dash 0.1.5
 
 A primitive portrait F1-style telemetry display, installed separately as `dev.obdmaru.dashboard` alongside Magic and Watcher. No cruise interpretation is included.
 
@@ -10,6 +10,8 @@ Install the Dashboard APK, grant Nearby devices and notification permissions, an
 
 | Display | Mapping | Status |
 | --- | --- | --- |
+| Engine RPM | Standard `010C`: `(256*A+B)/4` RPM | Canonical standardized engine-speed signal; unsigned bytes, unavailable on missing/short replies. |
+| Turn indicators | Candidate `770/22BC08` b04: left mask `0x02`, right mask `0x04` | Community definition; not yet validated on this vehicle. Sampled state only, no synthetic blink animation. |
 | Speed | Standard `010D`, data byte 0 in km/h | Standard definition; not calibrated to dashboard or GPS. No guessed U19 speed byte. |
 | Throttle | U19 `7E1/2201A4` b08 /254 ×100 | Owner-observed pedal candidate. Also shows raw b07 and its separately calibrated `(b07−32)/213 ×100` percentage for comparison. |
 | Brake | U03 `7D1/22C101` sqrt(b32 /150) ×100 | Nonlinear relative display, not physical depth or pressure. Raw 150 maps to 100%. Numeric values can exceed 100%; bar fills at 100%. Raw b32 and b33 remain separate. |
@@ -29,7 +31,7 @@ Failed, rejected or short replies remove only the affected sample (a U19 failure
 
 The owner subsequently confirmed that Watcher was still polling in the background during the disconnecting Dash run; stopping Watcher resolved disconnections. That is the established explanation for that run. The recovery changes remain, but must not be cited as proof of an adapter fault.
 
-Watcher repeats one full block at 5/10 requests per second without changing headers. Dash at its requested targets sends 10 full U19 blocks plus 10 full U03 blocks and 3 speed requests per second, frequently with a separate `ATSH` command before each. Decoding fewer visible fields does not reduce those full ECU replies. At the captured lengths this is approximately 799 diagnostic payload bytes/s versus 370 bytes/s for Watcher U19 at 10 Hz, before CAN/ASCII/header-switch overhead. The selected targets can therefore exceed available serial throughput even though a single Watcher block reaches 10 Hz.
+Watcher repeats one full block at 5/10 requests per second without changing headers. Before RPM/indicator additions, Dash at its requested targets sent 10 full U19 blocks plus 10 full U03 blocks and 3 speed requests per second, frequently with a separate `ATSH` command before each. Decoding fewer visible fields does not reduce those full ECU replies. At the captured lengths this is approximately 799 diagnostic payload bytes/s versus 370 bytes/s for Watcher U19 at 10 Hz, before CAN/ASCII/header-switch overhead. The selected targets can therefore exceed available serial throughput even though a single Watcher block reaches 10 Hz.
 
 Exact real TX/RX and request outcomes are recorded through the shared transport. Mapping metadata and channel query phases are retained. Synthetic demo uses separate `dashboard_demo_sample` events and does not fabricate Bluetooth traffic. Logs remain private until shared.
 
@@ -51,10 +53,22 @@ Seventeen Dashboard JVM tests now cover the above behavior, including slow-link 
 
 ## Exclusive connection guard
 
-This version shares a process-lifetime OS socket-name lock with Magic 2.0.2, Watcher 0.1.1 and Dash 0.1.4. Update every installed OBDMaru peer; older builds cause a clear update-required message before Bluetooth connects. While one real session owns the lock, another app names that owner and stops its start attempt. The lock remains held during reconnects and is released after closing Bluetooth, or automatically if the process dies. Demo sessions do not connect and bypass the lock. Arbitrary third-party apps are not controllable or reliably detectable; stop them manually.
+This version shares a process-lifetime OS socket-name lock with Magic 2.0.2, Watcher 0.1.1 and Dash 0.1.5. Update every installed OBDMaru peer; older builds cause a clear update-required message before Bluetooth connects. While one real session owns the lock, another app names that owner and stops its start attempt. The lock remains held during reconnects and is released after closing Bluetooth, or automatically if the process dies. Demo sessions do not connect and bypass the lock. Arbitrary third-party apps are not controllable or reliably detectable; stop them manually.
 
 ## Version 0.1.4 brake response
 
 Brake display uses `100 * sqrt(raw_b32 / 150.0)`: raw 0→0%, 6→20%, 24→40%, 54→60%, 96→80%, 150→100%. The slope is steep near release and progressively flatter as input rises. Raw b32/b33 remain separate and unchanged. Values above raw150 remain above100 numerically; only the bar fill clips at100. This is a user-selected display curve, not a physical percentage, pressure conversion, deceleration or grip estimate. No automatic recalibration changes the reference between sessions. Session metadata records the curve, exponent and raw reference.
 
 Dashboard JVM tests cover the low/high response relationship, exact calibration landmarks, monotonicity, zero, overflow and untouched raw bytes. No emulator or vehicle check performed for this display-only update.
+
+## Version 0.1.5 engine RPM and turn indicators
+
+Standard engine RPM (`010C`) targets 5 Hz, sharing physical engine address `7E0` with speed. When both are due, RPM can immediately follow speed without an extra header switch. Failure of either physical engine request switches both to functional `7DF` for subsequent reads. RPM uses the [ELM327 documented standard conversion](https://www.elmelectronics.com/wp-content/uploads/2016/07/ELM327DS.pdf), unsigned16-bit big-endian divided by4. Short or stale readings are unavailable, not zero.
+
+The [OBDb Tucson indicator candidate](https://github.com/OBDb/Hyundai-Tucson/blob/b1306dc2c54e32ba4344fcbb5fd098ef66db50e7/signalsets/v3/default.json#L59-L63) requests `770/22BC08` with expected response `778`. Source bit offsets37/38 are MSB-indexed: data byte4 bit2 (`0x04`) right and bit1 (`0x02`) left. Both bits set lights both arrows, without asserting a separate hazard-switch state. The raw b04 hex value remains visible for validation. This request was not in the original real capture and remains unverified on the user's car.
+
+Indicator probes begin after the first main telemetry attempts, target2 Hz when core jobs are not badly overdue, and back off30–120 seconds on no-data/rejection. Indicator I/O timeout is capped at1.2 seconds before normal adapter recovery; a rejected reply does not reconnect Bluetooth or reset motion samples. This optional job can run below2 Hz under saturation. There is no invented blink animation or assumption that a lever rather than lamp phase is reported. Polling may miss flashing transitions. Missing/stale replies display question-mark arrows and unavailable status, distinct from two reported-off bits.
+
+Current requested data rates total about30 requests/s (U19 10, U03 10, speed3, RPM5, indicators up to2), plus ECU-address commands; actual rates depend on shared adapter throughput. Clutch display still uses existing U19 replies at1 Hz. All per-channel measured rates remain on the portrait screen.
+
+Twenty-six Dashboard/shared JVM tests cover RPM byte order/scaling, indicator masks and unknown/off distinction, 5 Hz RPM scheduling, same-header engine grouping and indicator failure backoff. APK/test-APK compilation and lint pass. No emulator or vehicle validation was performed for this update.
