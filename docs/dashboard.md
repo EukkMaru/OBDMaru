@@ -1,4 +1,4 @@
-# OBDMaru Dash 0.1.8
+# OBDMaru Dash 0.1.9
 
 A portrait circular telemetry display, installed separately as `dev.obdmaru.dashboard` alongside Magic and Watcher. No cruise interpretation is included.
 
@@ -13,8 +13,8 @@ Install the Dashboard APK, grant Nearby devices and notification permissions, an
 | Engine RPM | Standard `010C`: `(256*A+B)/4` RPM | Canonical standardized engine-speed signal; unsigned bytes, unavailable on missing/short replies. |
 | Turn indicators | Candidate `770/22BC08` b04: left mask `0x02`, right mask `0x04` | Community definition; not yet validated on this vehicle. Sampled state only, no synthetic blink animation. |
 | Speed | Standard `010D`, data byte 0 in km/h | Standard definition; not calibrated to dashboard or GPS. No guessed U19 speed byte. |
-| Throttle | U19 `7E1/2201A4` b08 /254 ×100 | Owner-observed pedal candidate. Also shows raw b07 and its separately calibrated `(b07−32)/213 ×100` percentage for comparison. |
-| Brake | U03 `7D1/22C101` sqrt(b32 /150) ×100 | Nonlinear relative display, not physical depth or pressure. Raw 150 maps to 100%. Numeric values can exceed 100%; bar fills at 100%. Raw b32 and b33 remain separate. |
+| Throttle | U19 `7E1/2201A4` b08 /254 ×100 | Owner-observed pedal candidate, shown as an arc. Raw b07/b08 remain in diagnostics; no numeric percentage readout. |
+| Brake | U03 `7D1/22C101` sqrt(b32 /150) ×100 | Nonlinear relative arc, not physical depth or pressure. Raw 150 fills the arc; larger raw readings remain in diagnostics/logs. No numeric percentage readout. Raw b32 and b33 remain separate. |
 | Gear | U19 b23 low nibble, 1–7 forward /14 reverse; selector b21 supplies P/R/N | Candidate mapping supported by owner observations and community gear definition. |
 | Mode | U19 b22: P=1, R=3, N=5, D=7, M=10 | Owner-observed codes. |
 | Secondary gear | U19 b24 low nibble | Explicitly uncertain; database calls it next gear. Not labeled as other-clutch preselection. |
@@ -53,7 +53,7 @@ Seventeen Dashboard JVM tests now cover the above behavior, including slow-link 
 
 ## Exclusive connection guard
 
-This version shares a process-lifetime OS socket-name lock with Magic 2.0.2, Watcher 0.1.1 and Dash 0.1.8. Update every installed OBDMaru peer; older builds cause a clear update-required message before Bluetooth connects. While one real session owns the lock, another app names that owner and stops its start attempt. The lock remains held during reconnects and is released after closing Bluetooth, or automatically if the process dies. Demo sessions do not connect and bypass the lock. Arbitrary third-party apps are not controllable or reliably detectable; stop them manually.
+This version shares a process-lifetime OS socket-name lock with Magic 2.0.2, Watcher 0.1.1 and Dash 0.1.9. Update every installed OBDMaru peer; older builds cause a clear update-required message before Bluetooth connects. While one real session owns the lock, another app names that owner and stops its start attempt. The lock remains held during reconnects and is released after closing Bluetooth, or automatically if the process dies. Demo sessions do not connect and bypass the lock. Arbitrary third-party apps are not controllable or reliably detectable; stop them manually.
 
 ## Version 0.1.4 brake response
 
@@ -96,3 +96,7 @@ Validation: the 26 existing JVM tests, APK/test-APK compilation and lint pass. S
 ## Version 0.1.8 compact mode badge
 
 The mode badge now shows only D, M, P, R or N (— when unknown). Removed the redundant AUTO/MANUAL/PARK/REVERSE/NEUTRAL words and narrowed the badge around its centered letter. Telemetry, polling and the rest of the display are unchanged.
+
+## Version 0.1.9 pedal arcs without percentage readouts
+
+Removed the throttle/brake percentage numbers and their cards. Compact color legends identify the two pedal arcs. The clutch readouts and diagnostics move up to use the space. Raw b07/b08 and b32/b33 remain in diagnostics and logs; the brake curve and arc clipping are unchanged. No extra temperature channels were added in this display update.

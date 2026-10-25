@@ -135,7 +135,7 @@ class DashView(context: Context) : View(context) {
     }
 
     override fun onDraw(c: Canvas) {
-        val scale = minOf(width / 360f, height / 650f)
+        val scale = minOf(width / 360f, height / 623f)
         c.save()
         c.translate((width - 360 * scale) / 2, 0f)
         c.scale(scale, scale)
@@ -174,32 +174,27 @@ class DashView(context: Context) : View(context) {
         text(c, number(rpm), 180f, 365f, 20f, muted, centered = true)
         text(c, if (rpm == null) "RPM · unavailable" else "RPM · 0–6000", 180f, 380f, 9f, muted, centered = true)
 
-        fun pedal(x: Float, label: String, value: Double?, color: Int) {
-            box(c, x, 390f, 162f, 55f, panel)
-            text(c, label, x + 12, 407f, 10f, color, true)
-            text(c, number(value) + if (value == null) "" else "%", x + 12, 434f, 26f, white, true)
-        }
-        pedal(12f, "OUTER · THROTTLE", t?.gas, green)
-        pedal(186f, "MIDDLE · BRAKE", brake?.percent, red)
-        text(c, "CLUTCH TEMPERATURES · PROVISIONAL", 12f, 461f, 9f, muted)
+        text(c, "OUTER · THROTTLE", 12f, 407f, 10f, green, true)
+        text(c, "MIDDLE · BRAKE", 186f, 407f, 10f, red, true)
+        text(c, "CLUTCH TEMPERATURES · PROVISIONAL", 12f, 434f, 9f, muted)
         fun temperature(x: Float, label: String, value: Double?) {
-            box(c, x, 470f, 162f, 61f, panel)
-            text(c, label, x + 12, 488f, 10f, cyan, true)
-            text(c, number(value) + if (value == null) "" else "°C", x + 12, 520f, 30f, white, true)
+            box(c, x, 443f, 162f, 61f, panel)
+            text(c, label, x + 12, 461f, 10f, cyan, true)
+            text(c, number(value) + if (value == null) "" else "°C", x + 12, 493f, 30f, white, true)
         }
         temperature(12f, "CLUTCH 1", clutch?.clutch1)
         temperature(186f, "CLUTCH 2", clutch?.clutch2)
-        text(c, "Brake √ curve · raw 150 = 100% · overflow stays numeric", 12f, 549f, 10f, muted)
+        text(c, "Brake √ curve · raw 150 = full arc", 12f, 522f, 10f, muted)
         text(c, "Gas b07/08 ${t?.rawGas7 ?: "—"}/${t?.rawGas8 ?: "—"} · brake b32/33 ${brake?.raw32 ?: "—"}/${brake?.raw33 ?: "—"}",
-            12f, 566f, 10f, muted)
+            12f, 539f, 10f, muted)
         text(c, indicators?.let { String.format(Locale.US, "Turn candidate · b04 %02X", it.raw4) }
-            ?: "Turn candidate · unavailable", 12f, 583f, 10f, muted)
+            ?: "Turn candidate · unavailable", 12f, 556f, 10f, muted)
         fun stat(name: String, s: Sample?) = if (s == null) "$name —" else
             String.format(Locale.US, "%s %.1fHz %dms", name, s.hz, now - s.at)
-        text(c, stat("U19", ts) + " · " + stat("U03", bs), 12f, 600f, 10f, muted)
-        text(c, stat("Speed", ss) + " · " + stat("RPM", rs), 12f, 616f, 10f, muted)
-        text(c, stat("Clutch", cs) + " · " + stat("Turn", ins), 12f, 632f, 10f, muted)
-        text(c, state.status.take(55), 12f, 648f, 10f, cyan)
+        text(c, stat("U19", ts) + " · " + stat("U03", bs), 12f, 573f, 10f, muted)
+        text(c, stat("Speed", ss) + " · " + stat("RPM", rs), 12f, 589f, 10f, muted)
+        text(c, stat("Clutch", cs) + " · " + stat("Turn", ins), 12f, 605f, 10f, muted)
+        text(c, state.status.take(55), 12f, 621f, 10f, cyan)
         c.restore()
     }
 }
