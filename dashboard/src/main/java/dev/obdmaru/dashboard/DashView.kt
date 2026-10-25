@@ -35,7 +35,7 @@ class DashView(context: Context):View(context) {
   }
   pedal(12f,"THROTTLE · candidate",t?.gas,green,"b08 ${t?.rawGas8?:"—"} · b07 ${t?.rawGas7?:"—"}")
   pedal(186f,"BRAKE · relative",b?.percent,red,"b32 ${b?.raw32?:"—"} · b33 ${b?.raw33?:"—"}")
-  text(c,"Brake reference: raw 140 = 100%; numeric value can exceed 100%",12f,337f,10f,muted)
+  text(c,"Brake: square-root response · raw 150 = 100%; values can exceed 100%",12f,337f,10f,muted)
   text(c,"b07 pedal comparison: ${number(t?.gasAlt)}% · brake switch: ${when(t?.brakeSwitch){true->"ON";false->"OFF";else->"—"}}",12f,354f,11f,muted)
   fun clutch(x:Float,title:String,value:Double?) {
    box(c,x,370f,162f,90f,Color.rgb(24,34,47));text(c,title,x+12,392f,12f,cyan,true)

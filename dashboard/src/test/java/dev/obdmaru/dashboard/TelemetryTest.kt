@@ -8,7 +8,7 @@ class TelemetryTest {
   t[7]=245.toByte();t[8]=254.toByte()
   assertEquals(100.0,Telemetry.transmission(t).gas!!,0.001);assertEquals(100.0,Telemetry.transmission(t).gasAlt!!,0.001)
   val b=ByteArray(39);b[32]=168.toByte();b[33]=140.toByte()
-  assertEquals(120.0,Telemetry.brake(b).percent!!,0.001);assertEquals(140,Telemetry.brake(b).raw33)
+  assertEquals(105.830052,Telemetry.brake(b).percent!!,0.001);assertEquals(140,Telemetry.brake(b).raw33)
  }
  @Test fun temperatureUsesBothBytesAndGearUsesLowNibble() {
   val t=ByteArray(34);t[21]=8;t[23]=0xA7.toByte();t[24]=0xB6.toByte();t[30]=70;t[32]=75
@@ -20,5 +20,20 @@ class TelemetryTest {
  @Test fun incompleteAndStaleSamplesNeverBecomeZero() {
   assertNull(Telemetry.brake(ByteArray(2)).percent);assertNull(Telemetry.transmission(ByteArray(3)).gas)
   assertFalse(Telemetry.fresh(100,1700,1500));assertTrue(Telemetry.fresh(100,1600,1500));assertFalse(Telemetry.fresh(0,100,1500))
+ }
+
+ @Test fun brakeCurveHasSteepLowResponseCompressesHighInputsAndRetainsRaw() {
+  fun display(raw:Int):Double {
+   val b=ByteArray(39);b[32]=raw.toByte();b[33]=7
+   val decoded=Telemetry.brake(b)
+   assertEquals(raw,decoded.raw32);assertEquals(7,decoded.raw33)
+   return decoded.percent!!
+  }
+  assertEquals(0.0,display(0),0.0001)
+  assertEquals(20.0,display(6),0.0001);assertEquals(40.0,display(24),0.0001)
+  assertEquals(60.0,display(54),0.0001);assertEquals(80.0,display(96),0.0001)
+  assertEquals(100.0,display(150),0.0001);assertTrue(display(255)>100)
+  assertTrue(display(40)-display(0)>display(80)-display(40))
+  assertTrue((1..255).all{display(it)>display(it-1)})
  }
 }

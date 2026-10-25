@@ -1,4 +1,4 @@
-# OBDMaru Dash 0.1.3
+# OBDMaru Dash 0.1.4
 
 A primitive portrait F1-style telemetry display, installed separately as `dev.obdmaru.dashboard` alongside Magic and Watcher. No cruise interpretation is included.
 
@@ -12,7 +12,7 @@ Install the Dashboard APK, grant Nearby devices and notification permissions, an
 | --- | --- | --- |
 | Speed | Standard `010D`, data byte 0 in km/h | Standard definition; not calibrated to dashboard or GPS. No guessed U19 speed byte. |
 | Throttle | U19 `7E1/2201A4` b08 /254 ×100 | Owner-observed pedal candidate. Also shows raw b07 and its separately calibrated `(b07−32)/213 ×100` percentage for comparison. |
-| Brake | U03 `7D1/22C101` b32 /140 ×100 | Relative input, not physical depth or pressure. Numeric percentages can exceed 100%; bar fills at 100%. Raw b32 and b33 remain separate. |
+| Brake | U03 `7D1/22C101` sqrt(b32 /150) ×100 | Nonlinear relative display, not physical depth or pressure. Raw 150 maps to 100%. Numeric values can exceed 100%; bar fills at 100%. Raw b32 and b33 remain separate. |
 | Gear | U19 b23 low nibble, 1–7 forward /14 reverse; selector b21 supplies P/R/N | Candidate mapping supported by owner observations and community gear definition. |
 | Mode | U19 b22: P=1, R=3, N=5, D=7, M=10 | Owner-observed codes. |
 | Secondary gear | U19 b24 low nibble | Explicitly uncertain; database calls it next gear. Not labeled as other-clutch preselection. |
@@ -51,4 +51,10 @@ Seventeen Dashboard JVM tests now cover the above behavior, including slow-link 
 
 ## Exclusive connection guard
 
-This version shares a process-lifetime OS socket-name lock with Magic 2.0.2, Watcher 0.1.1 and Dash 0.1.3. Update every installed OBDMaru peer; older builds cause a clear update-required message before Bluetooth connects. While one real session owns the lock, another app names that owner and stops its start attempt. The lock remains held during reconnects and is released after closing Bluetooth, or automatically if the process dies. Demo sessions do not connect and bypass the lock. Arbitrary third-party apps are not controllable or reliably detectable; stop them manually.
+This version shares a process-lifetime OS socket-name lock with Magic 2.0.2, Watcher 0.1.1 and Dash 0.1.4. Update every installed OBDMaru peer; older builds cause a clear update-required message before Bluetooth connects. While one real session owns the lock, another app names that owner and stops its start attempt. The lock remains held during reconnects and is released after closing Bluetooth, or automatically if the process dies. Demo sessions do not connect and bypass the lock. Arbitrary third-party apps are not controllable or reliably detectable; stop them manually.
+
+## Version 0.1.4 brake response
+
+Brake display uses `100 * sqrt(raw_b32 / 150.0)`: raw 0→0%, 6→20%, 24→40%, 54→60%, 96→80%, 150→100%. The slope is steep near release and progressively flatter as input rises. Raw b32/b33 remain separate and unchanged. Values above raw150 remain above100 numerically; only the bar fill clips at100. This is a user-selected display curve, not a physical percentage, pressure conversion, deceleration or grip estimate. No automatic recalibration changes the reference between sessions. Session metadata records the curve, exponent and raw reference.
+
+Dashboard JVM tests cover the low/high response relationship, exact calibration landmarks, monotonicity, zero, overflow and untouched raw bytes. No emulator or vehicle check performed for this display-only update.
