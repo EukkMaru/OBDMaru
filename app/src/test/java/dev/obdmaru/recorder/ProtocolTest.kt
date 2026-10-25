@@ -35,4 +35,25 @@ class ProtocolTest {
         assertTrue(Protocol.positive("7E9 06 62 01 A4 00 00 00\r>", "2201A4"))
         assertFalse(Protocol.positive("7E9 03 7F 22 31\r>", "2201A4"))
     }
+    @Test fun compactCanFramesSupportElevenAndTwentyNineBitIds() {
+        assertArrayEquals(byteArrayOf(50),Protocol.data("7E803410D32\r>","010D"))
+        assertArrayEquals(byteArrayOf(50),Protocol.data("18DAF11003410D32\r>","010D"))
+        assertEquals(setOf(1,5,12,13,32),Protocol.supported("7E806410008180001\r7E906410080000000\r>",1,0))
+        assertTrue(Protocol.frames("NO DATA\r010D\r>\rFFF03410D32").isEmpty())
+    }
+    @Test fun compactMultiframeStillRequiresCompleteOrderedPerEcuPayloads() {
+        val first="7E9100A6201A4010203\r"
+        val last="7E92104050607AAAAAA\r>"
+        assertArrayEquals(byteArrayOf(1,2,3,4,5,6,7),Protocol.data(first+last,"2201A4"))
+        assertNull(Protocol.data(first+last.replace("7E9","7E8"),"2201A4"))
+        assertNull(Protocol.data(first+last.replace("7E921","7E922"),"2201A4"))
+    }
+    @Test fun multiPidRequiresAllFieldsInOnePayloadAndAcceptsReorderedFields() {
+        val lengths=mapOf(0x0C to 2,0x0D to 1)
+        val p=Protocol.mode01Values("7E806410D320C1AF8\r>",lengths)!!
+        assertArrayEquals(byteArrayOf(0x1A,0xF8.toByte()),p[0x0C]);assertArrayEquals(byteArrayOf(50),p[0x0D])
+        for(raw in listOf("7E804410C1AF8", "7E804410C1AF8\r7E903410D32", "7E804410C1AF8\r7E803410D32", "7E806410D320D320C", "7E805410C1AF80D"))
+            assertNull(raw,Protocol.mode01Values(raw+"\r>",lengths))
+    }
+
 }

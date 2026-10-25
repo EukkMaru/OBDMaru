@@ -25,6 +25,10 @@ object Telemetry {
         1 -> "P"; 2 -> "R"; 3 -> "N"
         else -> when(t?.gear) { in 1..7 -> t!!.gear.toString(); 14 -> "R"; else -> "—" }
     }
+    // Owner-tested: in M b24 follows the selected/requested gear before b23 catches up.
+    fun displayGear(t: Transmission?): String = if(t?.selector==8 && t.mode==10)
+        t.nextGear?.takeIf{it in 1..7}?.toString()?:"—" else gear(t)
+    fun secondaryGear(t: Transmission?):Int? = if(t?.mode==10)t.gear else t?.nextGear
 }
 data class Transmission(val gas: Double?,val gasAlt: Double?,val rawGas7: Int?,val rawGas8: Int?,val selector: Int?,val mode: Int?,val gear: Int?,val nextGear: Int?,val clutch1: Double?,val clutch2: Double?,val brakeSwitch: Boolean?)
 data class Indicators(val left:Boolean,val right:Boolean,val raw4:Int)

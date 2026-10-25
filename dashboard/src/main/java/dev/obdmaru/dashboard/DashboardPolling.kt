@@ -38,6 +38,10 @@ class DashboardPolling(
     private var coolantIntervalMs=1000L
     private var nextPolicyAt=0L
     private var nextDeferLogAt=0L
+    private var engineBatch=true
+    private var batchCostMs=25.0
+    private val batchHint=ReplyHint()
+    private val batchPids=mapOf(0x0C to 2,0x0D to 1)
     private fun status(text: String) { message=text;messageUntil=now()+5000 }
     private fun emit() = publish(DashState(samples.toMap(),if(now()<messageUntil)message else "Live",demo,availability.toMap(),coolantIntervalMs))
     private fun sample(key: String,bytes: ByteArray,at: Long) {
@@ -53,13 +57,17 @@ class DashboardPolling(
             try {
                 stage="connect";status("Connecting…");emit();link=open()
                 // Do not reboot the adapter on every reconnect. Reapply all required settings.
-                val setup=listOf(if(firstConnection)"ATZ" else "ATPC","ATE0","ATL0","ATS1","ATH1","ATAT1","ATST32","ATSP6")
+                val setup=listOf(if(firstConnection)"ATZ" else "ATPC","ATE0","ATL0","ATH1","ATAT1","ATST32","ATSP6")
                 for(cmd in setup) {
                     stage=cmd
                     val reply=link!!.query(cmd,"dashboard_setup",6000)
                     if(cmd!="ATZ" && cmd!="ATPC" && !reply.contains("OK"))throw IOException("Setup rejected: $cmd (${Protocol.outcome(reply)})")
                 }
-                firstConnection=false;header="";times.clear();tasks.forEach{it.hint.reset();if(it.due==0L)it.due=now()};status("Connected");event("dashboard_connected",emptyMap())
+                stage="ATS0"
+                val compact=link!!.query("ATS0","dashboard_setup",2500).contains("OK")
+                if(!compact && !link!!.query("ATS1","dashboard_setup",2500).contains("OK"))throw IOException("Cannot configure response spacing")
+                event("dashboard_output_format",mapOf("compact" to compact))
+                firstConnection=false;header="";times.clear();batchHint.reset();tasks.forEach{it.hint.reset();if(it.due==0L)it.due=now()};status("Connected");event("dashboard_connected",emptyMap())
             }catch(e: IOException){reconnect(e);return}
         }
         val start=now()
@@ -68,7 +76,8 @@ class DashboardPolling(
         if(start>=nextPolicyAt) {
             nextPolicyAt=start+1000
             val active=foreground.filter{it.failures==0}
-            val load=active.sumOf{it.costMs/it.interval}
+            val load=if(engineBatch)active.filter{it.key!="speed" && it.key!="rpm"}.sumOf{it.costMs/it.interval}+batchCostMs/200
+                else active.sumOf{it.costMs/it.interval}
             val late=active.maxOfOrNull{(start-it.due).coerceAtLeast(0)}?:0
             val interval=when{load>=0.9 || late>=100->5000L;load>=0.7 || late>=25->2000L;else->1000L}
             if(interval!=coolantIntervalMs) {
@@ -83,7 +92,7 @@ class DashboardPolling(
         // Reserve due speed reads under load, but never starve both pedal streams with consecutive speed reads.
         val core=ready.filter{!it.optional && it.key!="coolant"}
         val candidate=ready.firstOrNull{it.optional}
-        // Optional body reads wait until motion streams have initial data, and never displace badly overdue core work.
+        // Body reads wait for initial motion attempts; forced probes below prevent starvation under load.
         val primaryReady=foreground.all{samples.containsKey(it.key) || availability.containsKey(it.key)}
         // Keep the speed/RPM pair, but coolant must pass its background budget.
         val enginePair=if(lastChannel=="speed" || lastChannel=="rpm")core.firstOrNull{
@@ -98,12 +107,16 @@ class DashboardPolling(
         val fits=coolantReady && core.isEmpty() && slack>=coolantBudget && (sameHeader || waiting>=250)
         // Under saturation allow an occasional refresh only while already at the engine address.
         val forced=coolantReady && sameHeader && waiting>=2000
+        // Optional never means never: probe once promptly, then bound starvation under load.
+        val indicatorForced=candidate!=null && primaryReady &&
+            start-candidate.due >= if(candidate.lastStarted==null)0 else 1500
         if(coolantReady && !fits && !forced && start>=nextDeferLogAt) {
             nextDeferLogAt=start+1000
             event("dashboard_coolant_deferred",mapOf("waiting_ms" to waiting,"slack_ms" to slack,"estimated_budget_ms" to coolantBudget,
                 "same_header" to sameHeader,"interval_ms" to coolantIntervalMs))
         }
-        val task=coolant.takeIf{forced}
+        val task=candidate?.takeIf{indicatorForced && (!forced || start-it.due>waiting)}
+            ?: coolant.takeIf{forced}
             ?: core.firstOrNull{it.key=="speed" && lastChannel!="speed"}
             ?: enginePair
             ?: coolant.takeIf{fits}
@@ -121,6 +134,10 @@ class DashboardPolling(
                 header=task.header;headerMs=now()-start
                 headerCostMs=headerCostMs*.7+headerMs*.3
             }
+            if(engineBatch && (task.key=="speed" || task.key=="rpm")) {
+                pollEngineBatch(start,headerMs)
+                return
+            }
             stage="${task.key} ${task.command}"
             wire=task.hint.command(task.command)
             val queryStart=now()
@@ -131,7 +148,7 @@ class DashboardPolling(
             event("dashboard_poll_timing",mapOf("channel" to task.key,"command" to task.command,"wire_command" to wire,
                 "header_ms" to headerMs,"query_ms" to now()-queryStart,"total_ms" to now()-start,
                 "late_ms" to (start-task.due).coerceAtLeast(0),"coolant_interval_ms" to coolantIntervalMs,
-                "coolant_forced_refresh" to (task.key=="coolant" && forced)))
+                "coolant_forced_refresh" to (task.key=="coolant" && forced),"indicator_forced_probe" to (task.optional && indicatorForced)))
             val bytes=Protocol.data(raw,task.command)
             if(bytes==null || bytes.size<task.size) {
                 val hinted=wire!=task.command
@@ -147,6 +164,7 @@ class DashboardPolling(
             }
             emit()
         }catch(e: IOException){
+            if(e.message=="Capture stopped")throw e
             val hinted=wire!=task.command
             val switched=fallbackEngine(task,e.toString())
             if(hinted){task.hint.reject();event("dashboard_reply_hint_disabled",mapOf("channel" to task.key,"reason" to e.toString()))}
@@ -158,9 +176,41 @@ class DashboardPolling(
             else reconnect(e)
         }
     }
+    private fun pollEngineBatch(start:Long,headerMs:Long) {
+        val logical="010C0D";val wire=batchHint.command(logical);val queryStart=now()
+        try {
+            stage="engine batch $logical"
+            val raw=link!!.query(wire,"dashboard_engine_batch",1200)
+            val decoded=Protocol.mode01Values(raw,batchPids)
+            event("dashboard_poll_timing",mapOf("channel" to "engine_batch","command" to logical,"wire_command" to wire,
+                "header_ms" to headerMs,"query_ms" to now()-queryStart,"total_ms" to now()-start))
+            if(decoded==null) {
+                disableBatch(Protocol.outcome(raw)+" / incomplete PID set")
+                return
+            }
+            val at=now();batchCostMs=batchCostMs*.7+(at-start)*.3
+            for((key,pid) in listOf("rpm" to 0x0C,"speed" to 0x0D)) {
+                sample(key,decoded.getValue(pid),at);availability[key]="Live"
+                tasks.first{it.key==key}.apply{failures=0;lastStarted=start;due=maxOf(start+interval,at)}
+            }
+            batchHint.observe(raw,logical,true)
+            lastChannel="engine_batch";emit()
+        }catch(e:IOException) {
+            if(e.message=="Capture stopped")throw e
+            disableBatch(e.message?:"I/O error")
+            if(try{link?.recover()==true}catch(_:IOException){false}){header="";event("dashboard_resynced",mapOf("channel" to "engine_batch"))}
+            else reconnect(e)
+        }
+    }
+    private fun disableBatch(reason:String) {
+        engineBatch=false;batchHint.reject()
+        tasks.filter{it.key=="speed" || it.key=="rpm"}.forEach{it.due=now()}
+        event("dashboard_engine_batch_disabled",mapOf("reason" to reason));emit()
+    }
     private fun fallbackEngine(task:Task,reason:String):Boolean {
         if(task.key in engineChannels && task.header=="7E0") {
             tasks.filter{it.key in engineChannels}.forEach{it.header="7DF";it.hint.reset()}
+            batchHint.reset()
             event(if(task.key=="speed")"dashboard_speed_fallback"else "dashboard_engine_fallback",mapOf("channel" to task.key,"from" to "7E0","to" to "7DF","reason" to reason))
             return true
         }

@@ -15,7 +15,7 @@ interface ElmTransport : Closeable {
     fun query(command: String, phase: String, timeoutMs: Long = 6000): String
 }
 
-class BluetoothElm(private val log: SessionLog, private val active: () -> Boolean) : ElmTransport {
+class BluetoothElm(private val log: SessionLog, private val requestGapMs:Long=15, private val active: () -> Boolean) : ElmTransport {
     @Volatile private var socket: BluetoothSocket? = null
     private data class Chunk(val bytes: ByteArray? = null, val error: String? = null)
     private val queue = LinkedBlockingQueue<Chunk>()
@@ -81,7 +81,7 @@ class BluetoothElm(private val log: SessionLog, private val active: () -> Boolea
                     val raw = out.toString()
                     log.event("request_end", "request_id" to id, "outcome" to Protocol.outcome(raw),
                         "raw" to raw, "duration_ms" to SystemClock.elapsedRealtime() - start)
-                    Thread.sleep(15)
+                    if(requestGapMs>0)Thread.sleep(requestGapMs)
                     return raw
                 }
             }

@@ -14,6 +14,8 @@ class DashboardPollingTest {
         var headerCost=5L
         var queryCost=5L
         var finalWait=0L
+        var batchSupported=false
+        var compactReplies=false
         var onEvent:(String,Map<String,Any?>)->Unit={_,_->}
         val commands=mutableListOf<String>()
         val counts=mutableMapOf<String,Int>()
@@ -26,6 +28,12 @@ class DashboardPollingTest {
                     commands+=command
                     fault(command)?.let{return it}
                     if(command.startsWith("AT"))return if(command=="ATZ")"ELM327>" else "OK>"
+                    if(command.startsWith("010C0D")) {
+                        if(!batchSupported)return "NO DATA\r>"
+                        counts["010C0D"]=(counts["010C0D"]?:0)+1
+                        if(command=="010C0D")time+=finalWait
+                        return if(compactReplies)"7E806410C1AF80D32\r>" else "7E8 06 41 0C 1A F8 0D 32\r>"
+                    }
                     val logical=command.take(if(command.startsWith("01"))4 else 6)
                     if(logical==command)time+=finalWait
                     counts[logical]=(counts[logical]?:0)+1
@@ -33,7 +41,7 @@ class DashboardPollingTest {
                     val prefix=("%02X".format(logical.take(2).toInt(16)+64)+logical.drop(2)).chunked(2).map{it.toInt(16)}
                     val p=prefix+data.map{it.toInt() and 255}
                     val frames=if(p.size<=7)listOf(listOf(p.size)+p)else listOf(listOf(0x10,p.size)+p.take(6))+p.drop(6).chunked(7).mapIndexed{i,b->listOf(0x20+((i+1)%16))+b}
-                    return frames.joinToString("\r"){"7E8 "+it.joinToString(" "){v->"%02X".format(v)}}+"\r>"
+                    return frames.joinToString("\r"){(if(compactReplies)"7E8"else "7E8 ")+it.joinToString(if(compactReplies)""else " "){v->"%02X".format(v)}}+"\r>"
                 }
                 override fun recover():Boolean {recoveries++;return recover}
                 override fun close(){closes++}
@@ -206,4 +214,63 @@ class DashboardPollingTest {
         assertTrue(r.state.samples.getValue("speed").hz>2)
         assertTrue(r.state.samples.getValue("coolant").hz>0)
     }
+    @Test fun completeBatchRefreshesSpeedAndRpmWithOneLearnedRequest() {
+        val r=Rig();r.batchSupported=true;r.compactReplies=true;r.run(6000)
+        assertTrue(r.counts.getValue("010C0D") in 28..31)
+        assertFalse(r.counts.containsKey("010C"));assertFalse(r.counts.containsKey("010D"))
+        assertTrue(r.commands.contains("010C0D1"))
+        assertEquals(r.state.samples.getValue("speed").at,r.state.samples.getValue("rpm").at)
+        assertEquals(50,r.state.samples.getValue("speed").bytes[0].toInt())
+        assertEquals(1726.0,Telemetry.rpm(r.state.samples.getValue("rpm").bytes)!!,0.001)
+        assertTrue(r.state.samples.getValue("speed").hz in 4.5..5.5)
+        assertEquals(1,r.opens);assertEquals(0,r.recoveries)
+        assertTrue(r.state.samples.keys.containsAll(listOf("tcm","brake","coolant","indicators")))
+    }
+    @Test fun partialBatchFallsBackOnceWithoutPublishingPartialOrReconnecting() {
+        val r=Rig();r.batchSupported=true
+        r.fault={if(it.startsWith("010C0D"))"7E8 04 41 0C 1A F8\r>"else null}
+        r.run(6000)
+        assertEquals(1,r.commands.count{it.startsWith("010C0D")})
+        assertTrue(r.events.contains("dashboard_engine_batch_disabled"))
+        assertTrue(r.counts.getValue("010C")>25);assertTrue(r.counts.getValue("010D")>15)
+        assertEquals(1,r.opens);assertEquals(0,r.recoveries)
+        assertFalse(r.commands.contains("ATSH7DF"))
+    }
+    @Test fun batchTimeoutResyncsThenUsesSeparateReads() {
+        val r=Rig();r.batchSupported=true
+        r.fault={if(it.startsWith("010C0D"))throw IOException("No prompt")else null}
+        r.run(6000)
+        assertEquals(1,r.commands.count{it.startsWith("010C0D")})
+        assertEquals(1,r.opens);assertEquals(1,r.recoveries)
+        assertTrue(r.state.samples.keys.containsAll(listOf("speed","rpm","brake")))
+        assertFalse(r.commands.contains("ATSH7DF"))
+    }
+    @Test fun saturatedLinkStillAttemptsIndicatorsAndHonorsUnsupportedBackoff() {
+        val r=Rig();r.headerCost=45;r.queryCost=90
+        r.fault={if(it=="22BC08")"778 03 7F 22 31\r>"else null}
+        r.run(20000)
+        assertEquals(1,r.commands.count{it=="22BC08"})
+        assertTrue(r.state.availability.getValue("indicators").startsWith("Unavailable"))
+        assertTrue(r.counts.getValue("2201A4")>10);assertTrue(r.counts.getValue("22C101")>10)
+        assertEquals(0,r.recoveries)
+    }
+    @Test fun saturatedLinkDoesNotStarveSuccessfulIndicatorReads() {
+        val r=Rig();r.headerCost=45;r.queryCost=90;r.run(12000)
+        assertTrue("counts=${r.counts}",r.counts.getValue("22BC08")>=4)
+        assertTrue(r.state.samples.containsKey("indicators"))
+    }
+    @Test fun rejectedCompactOutputFallsBackToSpacedOutput() {
+        val r=Rig();r.fault={if(it=="ATS0")"?>"else null};r.run(2000)
+        assertTrue(r.commands.contains("ATS1"));assertEquals(1,r.opens)
+        assertTrue(r.state.samples.containsKey("speed"))
+    }
+    @Test fun normalStopDoesNotReportFailureOrAttemptRecovery() {
+        val r=Rig();r.run(2000);val before=r.events.size
+        r.fault={if(!it.startsWith("AT"))throw IOException("Capture stopped")else null}
+        try{r.run(1000);fail("Stop should propagate")}catch(e:IOException){assertEquals("Capture stopped",e.message)}
+        assertEquals(0,r.recoveries)
+        assertFalse(r.events.drop(before).contains("dashboard_channel_failure"))
+        assertFalse(r.events.drop(before).contains("dashboard_reconnect"))
+    }
+
 }

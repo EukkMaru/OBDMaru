@@ -59,4 +59,15 @@ class TelemetryTest {
   assertFalse(lights(0xC0).left);assertFalse(lights(0xC0).right)
   assertEquals(6,lights(6).raw4);assertNull(Telemetry.indicators(ByteArray(4)))
  }
+ @Test fun manualShowsRequestedGearWhileDriveShowsEngagedCandidate() {
+  val b=ByteArray(34);b[21]=8;b[22]=7;b[23]=7;b[24]=6
+  var t=Telemetry.transmission(b)
+  assertEquals("7",Telemetry.displayGear(t));assertEquals(6,Telemetry.secondaryGear(t))
+  b[22]=10;t=Telemetry.transmission(b)
+  assertEquals("6",Telemetry.displayGear(t));assertEquals(7,Telemetry.secondaryGear(t))
+  b[24]=0;assertEquals("—",Telemetry.displayGear(Telemetry.transmission(b)))
+  b[21]=1;assertEquals("P",Telemetry.displayGear(Telemetry.transmission(b)))
+  b[21]=2;assertEquals("R",Telemetry.displayGear(Telemetry.transmission(b)))
+ }
+
 }

@@ -20,7 +20,7 @@ No temperature formula is applied in this recorder. In particular, transmission 
 
 For Watcher block **U19 (`7E1/2201A4`)**, byte indices are zero-based data offsets after removing the positive-response service and identifier (`62 01 A4`). The cited OBDb definition labels the low four bits of **b23** as “Current gear” and the low four bits of **b24** as “Next gear” (`b23 & 0x0F` / `b24 & 0x0F`).
 
-Owner observation reported 2026-10-24: b23 and b24 appeared identical, showing 1–7 for forward gears and 14 in reverse. Brief differences during shifts have not been established from a recording.
+Owner observation reported 2026-10-24: b23 and b24 appeared identical, showing 1–7 for forward gears and 14 in reverse. A later guided capture (2026-10-26) establishes sampled differences during manual shifts; see the updated evidence below.
 
 **b24 remains an uncertain gear-state field.** “Next gear” is the community database label, not a confirmed interpretation on this vehicle. Whether it represents a predicted/commanded upcoming gear, a gear physically preselected on the other DCT shaft, or another gear state is unresolved. Do not label it as the other clutch's prepared gear without further evidence. The observed agreement with b23 does not establish its distinct role.
 
@@ -50,3 +50,13 @@ Successful discovery is not exhaustive ECU enumeration. The recorder doesn't sea
 The fast schedule samples `010D`, `010C`, `0149`, `014A`, TCM `2201A4`/`2201A5`, and engine `22ED06`/`22ED04`/`22ED05`. These are capture priorities, not verified field labels. Standard coolant/intake temperature and additional channels run in the background. Guided progression uses only fresh standardized `010D` speed to gate timing; candidate brake, cruise or manual bits never assert that an instruction was completed.
 
 Magic also probes bounded neighboring read-data identifiers: engine `22ED00..22ED3F`, `22ED90..22ED9F`, and transmission `2201A0..2201AF`, once each before promoting positive replies to background polling. This is speculative read-only discovery, not source-backed decoding. Guided mode uses the existing finite bundle without these additional ranges. Entire zero data payloads remain logged and are retried slowly, never classified as missing hardware.
+
+## Guided-drive evidence — 2026-10-26
+
+The owner supplied a complete 30-minute guided recording, noting that actions followed speech completion and that a red light/U-turn interrupted the cruise-increase/cancel section. Speech callbacks, pauses and traffic-dependent waits are therefore used instead of treating announced instructions as confirmed physical actions. Primary blocks have median sample gaps around 1.65 seconds, limiting subsecond conclusions. Raw recordings and identifying data remain private.
+
+- **U19 b07/b08:** non-released values during cruise coexist with released standard `0149`/`014A` pedal baselines. They are effective demand candidates, not exclusively physical pedal depth. Pedal override is consistent with the owner's reported cruise behavior; a literal maximum/sum arbitration formula is not established.
+- **U19 b23/b24:** during M, b24 changes first in several sampled shifts, followed by b23 roughly one sampling interval later. Dash uses b24 as selected/requested in M and b23 as primary in D. This supports the display choice, not a claim about the other shaft's physically preselected gear or exact mechanical engagement delay.
+- **U12 `7E0/22ED06` b10:** a promising whole-byte cruise-state candidate. State1 follows ready/cancel, state2 follows SET/holding, and state0 follows master-off but also occurs with braking/low speed. State8 is a resume/acceleration candidate; states5/6 remain unresolved. Parked master-on does not identify a unique signal. The earlier b05-bit0 hypothesis is unsupported here because b05 stays constant. No retained direct cruise-set-speed field has been validated, and no cruise UI has been added to Dash.
+- **Brake U03 b32/b33:** both vary, with distinct raw values and no validated physical unit or maximum. Keep the existing relative curve separate from any documented pressure formula in another DID.
+- **Temperature:** standard coolant spans85–93 °C and intake19–30 °C. The provisional U19 clutch formulas yield44–104 °C and44–120 °C. Plausible values do not independently validate those mappings or establish overheating thresholds.

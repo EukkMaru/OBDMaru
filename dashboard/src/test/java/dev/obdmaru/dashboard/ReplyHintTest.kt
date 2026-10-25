@@ -22,4 +22,10 @@ class ReplyHintTest {
   assertEquals("010D",hint.command("010D"))
   hint.observe(one,"010D");assertEquals("010D1",hint.command("010D"))
  }
+ @Test fun learnsCompactCombinedReplyOnlyAfterCompletePidValidation() {
+  val hint=ReplyHint();val raw="7E806410C1AF80D32\r>";val pids=mapOf(0x0C to 2,0x0D to 1)
+  repeat(3){hint.observe(raw,"010C0D",dev.obdmaru.recorder.Protocol.mode01Values(raw,pids)!=null)}
+  assertEquals("010C0D1",hint.command("010C0D"))
+ }
+
 }

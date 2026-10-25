@@ -103,7 +103,8 @@ class DashView(context: Context) : View(context) {
     }
 
     private fun gears(c: Canvas, t: Transmission?, now: Long) {
-        val current = Telemetry.gear(t)
+        val current = Telemetry.displayGear(t)
+        val secondary=Telemetry.secondaryGear(t)
         val selected = current.toIntOrNull()?.takeIf { it in 1..7 }
         if (selected == null) {
             gearTarget = null
@@ -121,7 +122,7 @@ class DashView(context: Context) : View(context) {
             for (gear in 1..7) {
                 val x = 180 + (gear - position) * 47
                 val active = gear == selected
-                val prepared = gear == t?.nextGear
+                val prepared = gear == secondary
                 text(c, gear.toString(), x, if (active) 298f else 291f,
                     if (active) 42f else if (prepared) 24f else 22f,
                     if (active) white else if (prepared) amber else dim, active, true)
@@ -130,8 +131,8 @@ class DashView(context: Context) : View(context) {
             c.restore()
             if (now - gearStarted < 180) postInvalidateOnAnimation()
         }
-        val next = when (t?.nextGear) { in 1..7 -> t!!.nextGear.toString(); 14 -> "R"; else -> "—" }
-        text(c, "NEXT? $next · b24", 180f, 320f, 9f, muted, centered = true)
+        val next = when (secondary) { in 1..7 -> secondary.toString(); 14 -> "R"; else -> "—" }
+        text(c, if(t?.mode==10)"ENGAGED? $next · b23" else "TARGET? $next · b24", 180f, 320f, 9f, muted, centered = true)
     }
 
     override fun onDraw(c: Canvas) {
@@ -175,7 +176,7 @@ class DashView(context: Context) : View(context) {
         text(c, number(rpm), 180f, 365f, 20f, muted, centered = true)
         text(c, if (rpm == null) "RPM · unavailable" else "RPM · 0–6000", 180f, 380f, 9f, muted, centered = true)
 
-        text(c, "OUTER · THROTTLE", 12f, 407f, 10f, green, true)
+        text(c, "OUTER · DEMAND", 12f, 407f, 10f, green, true)
         text(c, "MIDDLE · BRAKE", 186f, 407f, 10f, red, true)
         text(c, "TEMPERATURES · CLUTCHES PROVISIONAL", 12f, 434f, 9f, muted)
         fun temperature(x: Float, label: String, value: Double?) {
@@ -187,7 +188,7 @@ class DashView(context: Context) : View(context) {
         temperature(128f, "CLUTCH 1", clutch?.clutch1)
         temperature(244f, "CLUTCH 2", clutch?.clutch2)
         text(c, "Brake √ curve · raw 150 = full arc", 12f, 522f, 10f, muted)
-        text(c, "Gas b07/08 ${t?.rawGas7 ?: "—"}/${t?.rawGas8 ?: "—"} · brake b32/33 ${brake?.raw32 ?: "—"}/${brake?.raw33 ?: "—"}",
+        text(c, "Demand b07/08 ${t?.rawGas7 ?: "—"}/${t?.rawGas8 ?: "—"} · brake b32/33 ${brake?.raw32 ?: "—"}/${brake?.raw33 ?: "—"}",
             12f, 539f, 10f, muted)
         text(c, indicators?.let { String.format(Locale.US, "Turn candidate · b04 %02X", it.raw4) }
             ?: "Turn candidate · unavailable", 12f, 556f, 10f, muted)

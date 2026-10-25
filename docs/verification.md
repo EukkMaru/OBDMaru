@@ -44,3 +44,12 @@ This does not validate hardware throughput, physical signal meanings, audible vo
 - 58 JVM tests pass across modules, including each app pairing, simultaneous acquisition, cleanup, and idempotent release. All three app/test APKs build and lint passes.
 - Android cross-app integration tests are compiled but were not executed. The first isolated emulator boot stopped at its 2 GiB cgroup cap; a bounded retry was stopped on user feedback. No device/cross-UID runtime verification is claimed. No emulator or Gradle daemon remains running.
 - Persistent project instructions now prohibit emulator startup without explicit user request and large artifacts on RAM-backed /tmp.
+
+## Dash 0.1.12 — 2026-10-26
+
+- 82 JVM tests across all three modules pass, including 42 Dashboard/shared tests.
+- All three app APKs and the Dashboard instrumentation-test APK compile; Dashboard lint passes.
+- New cases cover compact CAN parsing, strict multi-PID pairing and fallback, timeout resynchronization, optional indicator fairness under load, normal stop and manual gear selection.
+- Synthetic host previews execute the actual drawing code and verify M primary b24 with secondary b23, D, parked and missing states.
+- No emulator, phone, adapter or vehicle check was run. The next capture must validate combined-PID support, indicator mapping and achieved rates.
+- Build used persistent storage, one worker, in-process Kotlin, a 768 MiB Gradle heap and no retained daemon.
