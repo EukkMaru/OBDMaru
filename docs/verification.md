@@ -1,5 +1,13 @@
 # Verification — 2026-10-21
 
+## Dash 0.1.13 — 2026-10-26
+
+Adds a parked benchmark with 73 bounded experiment slots and a 45-second normal scheduler window, optional detailed shared-transport/fsync timing and a desktop JSON/text report. No driving sequence, parameter writes, UART baud changes, forced flow-control changes, actuator commands or unbounded monitor are added.
+
+Validation: 94 JVM tests across all three apps (54 Dashboard/shared), plus 12 Python tests, pass. New tests run the entire fixed plan with a fake adapter and cover complete frame-count learning, invalid/truncated replies, batch completeness, stationary checks/fallback, setting rejection, cancellation, timeout recovery and terminal loss of command boundaries. Report tests cover fragmented stream lines, read versus logging timestamps, echoed hex commands, warmups/failures, interrupted logs, filesystem sync and omission of private session identifiers from reports. APK compilation for all apps, Dashboard instrumentation-APK compilation and Dashboard lint pass. No emulator was started; no phone/vehicle test was run. Actual settings/batching support, CAN-board suitability and measured bottleneck results remain unverified.
+
+## Initial recorder validation — 2026-10-21
+
 - Debug APK built successfully (JDK 17, SDK 35, AGP 8.9.1).
 - Five JVM protocol tests passed: ECU bitmap union, continuation bits, headerless replies, truncated/negative input, and enhanced-positive detection.
 - Four desktop tests passed: exact raw replay, negative coverage reporting, interrupted-tail recovery, and interior-corruption rejection.

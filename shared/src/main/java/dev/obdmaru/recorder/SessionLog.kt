@@ -14,7 +14,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.UUID
 
-class SessionLog(context: Context, address: String, name: String, demo: Boolean, appVersion: String = "2.0.0") {
+class SessionLog(context: Context, address: String, name: String, demo: Boolean, appVersion: String = "2.0.0", private val detailedTiming:Boolean=false) {
     val file: File
     private val stream: FileOutputStream
     private val buffered: BufferedOutputStream
@@ -48,7 +48,12 @@ class SessionLog(context: Context, address: String, name: String, demo: Boolean,
         if (type in setOf("session_start", "marker", "guide_step", "session_end")) sync()
     }
     @Synchronized private fun sync() {
-        if (!closed) { buffered.flush(); stream.fd.sync() }
+        if (!closed) {
+            val before=if(detailedTiming)SystemClock.elapsedRealtimeNanos() else 0
+            buffered.flush(); stream.fd.sync()
+            if(detailedTiming)event("log_sync", "sync_start_ns" to before,
+                "sync_end_ns" to SystemClock.elapsedRealtimeNanos())
+        }
     }
     @Synchronized fun close(reason: String) {
         if (closed) return

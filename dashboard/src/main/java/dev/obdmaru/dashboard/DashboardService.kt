@@ -17,6 +17,7 @@ class DashboardService : Service() {
         if (intent?.action == "stop") { running = false; transport?.close(); worker?.interrupt(); return START_NOT_STICKY }
         if (running || worker?.isAlive == true) return START_NOT_STICKY
         val demo = intent?.getBooleanExtra("demo", false) ?: false
+        val benchmark = intent?.getBooleanExtra("benchmark", false) ?: false
         val address = intent?.getStringExtra("address") ?: ""
         getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel("watch", "Dashboard", NotificationManager.IMPORTANCE_LOW))
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
@@ -24,21 +25,22 @@ class DashboardService : Service() {
         startForeground(3, Notification.Builder(this, "watch").setContentTitle("OBDMaru Dash")
             .setContentText("Experimental telemetry · tap to open").setSmallIcon(android.R.drawable.ic_menu_view)
             .setContentIntent(open).addAction(Notification.Action.Builder(null, "Stop", stop).build()).build())
-        running = true; state = DashState(status = "Connecting…", demo = demo)
+        running = true; benchmarkProgress=if(benchmark)"Connecting for parked benchmark…"else ""; state = DashState(status = "Connecting…", demo = demo)
         wake = getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "OBDMaru:dashboard").apply { acquire(2 * 60 * 60 * 1000L) }
-        worker = Thread { capture(address, demo) }.apply { name = "dashboard-poll"; start() }
+        worker = Thread { capture(address, demo, benchmark) }.apply { name = "dashboard-poll"; start() }
         return START_NOT_STICKY
     }
     @Suppress("MissingPermission")
-    private fun capture(address: String, demo: Boolean) {
+    private fun capture(address: String, demo: Boolean, benchmark:Boolean) {
         var log: SessionLog? = null
         var lease: ConnectionLease? = null
         var poller: DashboardPolling? = null
+        var benchmarkLink:DashboardLink? = null
         var finalStatus = "Stopped · log saved"
         var attempt = 0
         try {
             if (!demo) lease = ObdConnectionGuard.acquire(this)
-            log = SessionLog(this,address,"Dashboard",demo,"dashboard-0.1.12");lastFile=log.file
+            log = SessionLog(this,address,if(benchmark)"Parked bottleneck test"else "Dashboard",demo,"dashboard-0.1.13",detailedTiming=benchmark);lastFile=log.file
             val session = log
             log.event("obd_connection_guard", "exclusive" to !demo, "demo" to demo)
             log.event("dashboard_start","tcm_target_hz" to 10,"brake_target_hz" to 10,"speed_target_hz" to 3,"clutch_display_hz" to 1,
@@ -52,10 +54,9 @@ class DashboardService : Service() {
                 "rpm_fill_mapping" to "linear_vertical_level",
                 "brake_display_curve" to "square_root", "brake_raw_reference" to 150, "brake_display_exponent" to 0.5,
                 "mapping" to "U19 b08 effective demand candidate /254; U03 b32 brake display sqrt(raw/150)*100; U19 low nibble b23 D gear, b24 M selected/requested gear candidate; U19 b29:31 and b31:33 BE *2-40 provisional temperatures; standard 010D speed; standard 010C RPM /4; standard 0105 coolant A-40 Celsius; indicator candidate 770/22BC08 b04 masks 02 left,04 right")
-            poller = DashboardPolling(
-                open = {
+            val openLink:()->DashboardLink = {
                     if(demo) demoLink(session) else {
-                        val elm=BluetoothElm(session,requestGapMs=0){running};transport=elm
+                        val elm=BluetoothElm(session,requestGapMs=0,detailedTiming=benchmark){running};transport=elm
                         try {
                             elm.connect(getSystemService(BluetoothManager::class.java).adapter.getRemoteDevice(address),attempt++%2==1)
                             object: DashboardLink {
@@ -65,7 +66,35 @@ class DashboardService : Service() {
                             }
                         }catch(e:Exception){elm.close();transport=null;throw e}
                     }
-                },
+                }
+            if(benchmark) {
+                val limit=SystemClock.elapsedRealtime()+12*60*1000L
+                fun active()=running && SystemClock.elapsedRealtime()<limit
+                benchmarkLink=openLink()
+                BenchmarkPlan(benchmarkLink,{SystemClock.elapsedRealtimeNanos()},{Thread.sleep(it)},::active,
+                    {type,fields->session.event(type,*fields.map{it.key to it.value}.toTypedArray())},
+                    {benchmarkProgress=it;state=DashState(status=it)}).run()
+                benchmarkProgress="Final test: normal dashboard scheduler · 45 seconds"
+                session.event("benchmark_phase_start","id" to "scheduler","label" to "Normal dashboard scheduler, 45 seconds")
+                // The regular scheduler runs unchanged, on this same instrumented connection.
+                var reuse:DashboardLink?=benchmarkLink
+                poller=DashboardPolling(open={reuse?.also{reuse=null}?:openLink()},now={SystemClock.elapsedRealtime()},sleep={Thread.sleep(it)},publish={state=it},
+                    event={type,fields->session.event(type,*fields.map{it.key to it.value}.toTypedArray())})
+                val end=SystemClock.elapsedRealtime()+45000
+                while(active() && SystemClock.elapsedRealtime()<end) {
+                    poller.step()
+                    if(state.samples["speed"]?.bytes?.firstOrNull()?.let{(it.toInt() and 255)>0}==true)
+                        throw java.io.IOException("Vehicle is moving; parked benchmark stopped")
+                }
+                if(!active())throw InterruptedException("Benchmark stopped or reached its 12-minute limit")
+                session.event("benchmark_phase_end","id" to "scheduler","completed" to true)
+                session.event("benchmark_complete")
+                finalStatus="Benchmark complete · log saved"
+                benchmarkProgress=finalStatus
+                return
+            }
+            poller = DashboardPolling(
+                open = openLink,
                 now = {SystemClock.elapsedRealtime()},sleep = {Thread.sleep(it)},publish = {state=it},
                 event = {type,fields->session.event(type,*fields.map{it.key to it.value}.toTypedArray())},demo = demo)
             while(running)poller.step()
@@ -74,10 +103,12 @@ class DashboardService : Service() {
             if(running){finalStatus="Stopped: ${e.message}";try{log?.event("dashboard_fatal","error" to e.toString())}catch(_:Exception){}}
         }finally{
             try{poller?.close()}catch(_:Exception){}
+            try{benchmarkLink?.close()}catch(_:Exception){}
             transport?.close();transport=null
             lease?.close();lease=null
-            try{log?.close("dashboard stopped")}catch(_:Exception){}
+            try{log?.close(if(benchmark)finalStatus else "dashboard stopped")}catch(e:Exception){finalStatus="Log finalization failed: ${e.message}"}
             state=DashState(status=finalStatus,demo=demo);running=false;stopSelf()
+            if(benchmark)benchmarkProgress=finalStatus
         }
     }
     private fun demoLink(log:SessionLog)=object:DashboardLink {
@@ -130,6 +161,7 @@ class DashboardService : Service() {
     }
     companion object {
         @Volatile var running=false
+        @Volatile var benchmarkProgress=""
         @Volatile var lastFile:File?=null
         @Volatile var state=DashState()
     }

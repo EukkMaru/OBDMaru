@@ -1,6 +1,6 @@
 # Session schema 1
 
-UTF-8 newline-delimited JSON (`.jsonl`), one event per line. A partial last line from process/power loss can be ignored; interior corruption must be reported. Each completed event is flushed and synced to storage. Request/response logging is at the adapter's Bluetooth serial interface: original ECU CAN timing and electrical bus frames are not available through this transport.
+UTF-8 newline-delimited JSON (`.jsonl`), one event per line. A partial last line from process/power loss can be ignored; interior corruption must be reported. Events are buffered and synced roughly every 500 ms; session boundaries and selected markers force a sync. Request/response logging is at the adapter's Bluetooth serial interface: original ECU CAN timing and electrical bus frames are not available through this transport.
 
 Common fields:
 
@@ -50,3 +50,16 @@ Schema stays 1; `app_version` is `2.0.0`. `session_start.durability_interval_ms`
 `guide_control_observation` records the response source, sample completion time and raw owner-observed candidate fields: U19 b07/b08, b21/b22, b23/b24 and b26, plus masked gear/brake candidates; U03 b32/b33 are preserved independently. These events continue after guide completion until recording stops and do not claim parking-brake or cruise knowledge. Raw TX/RX remains the authoritative recording.
 
 Speech callbacks now include `speech_stopped`. Observation-window clocks pause while the current prompt is queued/speaking. Actual `speech_started`/`speech_finished` timestamps remain distinct from instruction issuance and observed controls. Session summaries retain the requested before/after states and observation counts by source.
+
+## Dash 0.1.13 parked benchmark
+
+Detailed transport timing is opt-in for the [parked bottleneck test](bottleneck.md); normal captures retain their existing scheduling.
+
+- `benchmark_start`, `benchmark_phase_setup/start/end/skip/abort`, `benchmark_plan_end`, `benchmark_complete`: experiment lifecycle, exact applied settings, desired repetitions, outcomes and terminal completion. Finishing an experiment does not imply all requests succeeded. `benchmark_complete` requires reaching the end of the final scheduler window.
+- `benchmark_sample`: logical and actual command, physical request header, warmup status, positive/completeness validation, raw-output byte count, headered CAN-line count and query/header/cycle durations. Full raw bytes remain in TX/RX.
+- `benchmark_io_error`: command/phase/error before resync. Recovery abandons that phase; an unclean boundary stops the test.
+- `rx.read_start_ns/read_end_ns`: timestamps immediately around the blocking stream read, before copying/encoding/logging. A blocked read can span idle time and several internal transport stages. Absent/null fields mean detailed timing was disabled.
+- `request_timing`: `call_ns`, `write_start_ns`, `write_end_ns`, first/last read/dequeue timestamps, chunk/byte counts, RX logger duration, maximum delivery-to-dequeue lag, TX logging/preparation duration, request-end logging duration and post-prompt gap. Emitted for prompt-completed requests; timed-out requests retain partial RX and failure events instead. Timestamp durations use `_ns`; they are phone elapsed-realtime timestamps, never ECU/CAN/radio clocks.
+- `log_sync`: start/end of buffered flush plus filesystem sync while holding the logger lock. This timing event is itself buffered; it does not recursively sync.
+
+The benchmark uses the same schema and exact raw-byte replay. Nanosecond storage does not establish nanosecond measurement precision. RX logger duration overlaps delivery-to-dequeue lag, and read chunks are not CAN/RFCOMM packet boundaries. See the benchmark guide for comparisons and limitations.

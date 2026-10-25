@@ -1,5 +1,7 @@
 # OBDMaru — Magic App 2.0
 
+Dash **0.1.13** adds a [parked adapter bottleneck test](docs/bottleneck.md): automatic read-only experiments, raw replies/failures, detailed phone-side transport/logging timestamps and a standard-library Python report. [Download Dash](https://github.com/EukkMaru/OBDMaru/releases/download/dashboard-v0.1.13/OBDMaru-Dash-v0.1.13.apk).
+
 Android diagnostic capture for a **2018 Hyundai Tucson TL, pre-facelift, 1.7 CRDi with dry 7DCT**, a generic **ELM327 Bluetooth Classic** adapter, and a **Galaxy S23+ on Android 16 / One UI 8.5**. No root required.
 
 [Download and instructions](https://EukkMaru.github.io/OBDMaru/) · [Releases](https://github.com/EukkMaru/OBDMaru/releases)

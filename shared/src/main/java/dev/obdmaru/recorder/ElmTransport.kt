@@ -15,9 +15,10 @@ interface ElmTransport : Closeable {
     fun query(command: String, phase: String, timeoutMs: Long = 6000): String
 }
 
-class BluetoothElm(private val log: SessionLog, private val requestGapMs:Long=15, private val active: () -> Boolean) : ElmTransport {
+class BluetoothElm(private val log: SessionLog, private val requestGapMs:Long=15, private val detailedTiming:Boolean=false, private val active: () -> Boolean) : ElmTransport {
     @Volatile private var socket: BluetoothSocket? = null
-    private data class Chunk(val bytes: ByteArray? = null, val error: String? = null)
+    private data class Chunk(val bytes: ByteArray? = null, val error: String? = null,
+        val readNs:Long=0, val logNs:Long=0)
     private val queue = LinkedBlockingQueue<Chunk>()
     @Volatile private var request: Long? = null
 
@@ -36,14 +37,20 @@ class BluetoothElm(private val log: SessionLog, private val requestGapMs:Long=15
             try {
                 val buffer = ByteArray(2048)
                 while (active()) {
+                    val readStart = if(detailedTiming)SystemClock.elapsedRealtimeNanos() else 0
                     val n = s.inputStream.read(buffer)
+                    val readEnd = if(detailedTiming)SystemClock.elapsedRealtimeNanos() else 0
                     if (n < 0) throw IOException("Bluetooth stream EOF")
                     if (n == 0) continue
                     val bytes = buffer.copyOf(n)
-                    log.event("rx", "request_id" to request,
+                    val readRequest = request
+                    val logStart = if(detailedTiming)SystemClock.elapsedRealtimeNanos() else 0
+                    log.event("rx", "request_id" to readRequest,
                         "base64" to Base64.encodeToString(bytes, Base64.NO_WRAP),
-                        "ascii" to bytes.toString(Charsets.US_ASCII))
-                    queue.put(Chunk(bytes))
+                        "ascii" to bytes.toString(Charsets.US_ASCII),
+                        "read_start_ns" to readStart.takeIf{detailedTiming}, "read_end_ns" to readEnd.takeIf{detailedTiming})
+                    val logNs = if(detailedTiming)SystemClock.elapsedRealtimeNanos()-logStart else 0
+                    queue.put(Chunk(bytes,readNs=readEnd,logNs=logNs))
                 }
             } catch (e: Exception) {
                 queue.offer(Chunk(error = e.toString()))
@@ -59,13 +66,18 @@ class BluetoothElm(private val log: SessionLog, private val requestGapMs:Long=15
         request = id
         val wire = (command + "\r").toByteArray(Charsets.US_ASCII)
         val start = SystemClock.elapsedRealtime()
+        val callNs = if(detailedTiming)SystemClock.elapsedRealtimeNanos() else 0
         log.event("tx", "request_id" to id, "command" to command, "phase" to phase,
             "timeout_ms" to timeoutMs, "base64" to Base64.encodeToString(wire, Base64.NO_WRAP))
         try {
             val s = socket ?: throw IOException("Not connected")
+            val writeStart = if(detailedTiming)SystemClock.elapsedRealtimeNanos() else 0
             s.outputStream.write(wire)
             s.outputStream.flush()
+            val writeEnd = if(detailedTiming)SystemClock.elapsedRealtimeNanos() else 0
             val out = StringBuilder()
+            var firstRead=0L;var lastRead=0L;var firstDequeue=0L;var lastDequeue=0L
+            var chunks=0;var bytes=0;var rxLogNs=0L;var maxQueueNs=0L
             while (active()) {
                 val remaining = timeoutMs - (SystemClock.elapsedRealtime() - start)
                 if (remaining <= 0) {
@@ -74,14 +86,32 @@ class BluetoothElm(private val log: SessionLog, private val requestGapMs:Long=15
                     throw IOException("No ELM prompt within ${timeoutMs}ms for $command")
                 }
                 val chunk = queue.poll(minOf(remaining, 250), TimeUnit.MILLISECONDS) ?: continue
+                val dequeue = if(detailedTiming)SystemClock.elapsedRealtimeNanos() else 0
                 chunk.error?.let { throw IOException(it) }
+                if(detailedTiming) {
+                    if(chunks==0){firstRead=chunk.readNs;firstDequeue=dequeue}
+                    chunks++;bytes+=chunk.bytes!!.size;lastRead=chunk.readNs;lastDequeue=dequeue
+                    rxLogNs+=chunk.logNs;maxQueueNs=maxOf(maxQueueNs,dequeue-chunk.readNs)
+                }
                 out.append(chunk.bytes!!.toString(Charsets.US_ASCII))
                 if (out.length > 262144) throw IOException("Response exceeds 256KiB")
                 if ('>' in out) {
                     val raw = out.toString()
+                    val endLogStart = if(detailedTiming)SystemClock.elapsedRealtimeNanos() else 0
                     log.event("request_end", "request_id" to id, "outcome" to Protocol.outcome(raw),
                         "raw" to raw, "duration_ms" to SystemClock.elapsedRealtime() - start)
+                    val endLogEnd = if(detailedTiming)SystemClock.elapsedRealtimeNanos() else 0
                     if(requestGapMs>0)Thread.sleep(requestGapMs)
+                    if(detailedTiming)log.event("request_timing", "request_id" to id,
+                        "call_ns" to callNs, "write_start_ns" to writeStart, "write_end_ns" to writeEnd,
+                        "first_read_ns" to firstRead,"last_read_ns" to lastRead,
+                        "first_dequeue_ns" to firstDequeue,"last_dequeue_ns" to lastDequeue,
+                        "chunk_count" to chunks,"rx_bytes" to bytes,"rx_log_ns" to rxLogNs,
+                        "max_delivery_to_dequeue_ns" to maxQueueNs,
+                        "tx_log_and_prepare_ns" to writeStart-callNs,
+                        "request_end_log_ns" to endLogEnd-endLogStart,
+                        "post_prompt_ns" to SystemClock.elapsedRealtimeNanos()-endLogEnd,
+                        "timing_scope" to "phone RFCOMM stream delivery; not CAN or radio timestamps")
                     return raw
                 }
             }
