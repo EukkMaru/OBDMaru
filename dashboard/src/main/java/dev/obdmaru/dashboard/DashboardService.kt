@@ -38,15 +38,16 @@ class DashboardService : Service() {
         var attempt = 0
         try {
             if (!demo) lease = ObdConnectionGuard.acquire(this)
-            log = SessionLog(this,address,"Dashboard",demo,"dashboard-0.1.9");lastFile=log.file
+            log = SessionLog(this,address,"Dashboard",demo,"dashboard-0.1.10");lastFile=log.file
             val session = log
             log.event("obd_connection_guard", "exclusive" to !demo, "demo" to demo)
             log.event("dashboard_start","tcm_target_hz" to 10,"brake_target_hz" to 10,"speed_target_hz" to 3,"clutch_display_hz" to 1,
                 "rpm_target_hz" to 5, "indicators_target_hz" to 2, "indicators_candidate" to true,
+                "coolant_target_hz" to 1, "coolant_stale_ms" to 2500,
                 "display_layout" to "circular_level_gear_strip", "rpm_fill_reference" to 6000,
                 "rpm_fill_mapping" to "linear_vertical_level",
                 "brake_display_curve" to "square_root", "brake_raw_reference" to 150, "brake_display_exponent" to 0.5,
-                "mapping" to "U19 b08 pedal /254; U03 b32 brake display sqrt(raw/150)*100; U19 low nibble b23 gear; U19 b29:31 and b31:33 BE *2-40 provisional temperatures; standard 010D speed; standard 010C RPM /4; indicator candidate 770/22BC08 b04 masks 02 left,04 right")
+                "mapping" to "U19 b08 pedal /254; U03 b32 brake display sqrt(raw/150)*100; U19 low nibble b23 gear; U19 b29:31 and b31:33 BE *2-40 provisional temperatures; standard 010D speed; standard 010C RPM /4; standard 0105 coolant A-40 Celsius; indicator candidate 770/22BC08 b04 masks 02 left,04 right")
             poller = DashboardPolling(
                 open = {
                     if(demo) demoLink(session) else {
@@ -80,7 +81,7 @@ class DashboardService : Service() {
             if(command.startsWith("AT"))return if(command=="ATZ")"ELM327 DEMO\r>"else "OK\r>"
             Thread.sleep(35)
             val logical=command.take(if(command.startsWith("01"))4 else 6)
-            val key=when(logical){"2201A4"->"tcm";"22C101"->"brake";"010C"->"rpm";"22BC08"->"indicators";else->"speed"}
+            val key=when(logical){"2201A4"->"tcm";"22C101"->"brake";"010C"->"rpm";"0105"->"coolant";"22BC08"->"indicators";else->"speed"}
             val bytes=demoBytes(key,SystemClock.elapsedRealtime())
             log.event("dashboard_demo_sample","channel" to key,"bytes" to org.json.JSONArray(bytes.map{it.toInt() and 255}))
             val prefix=("%02X".format(logical.take(2).toInt(16)+64)+logical.drop(2)).chunked(2).map{it.toInt(16)}
@@ -108,6 +109,7 @@ class DashboardService : Service() {
             }
             "brake"->ByteArray(39).apply {this[32]=(brake*168).toInt().toByte();this[33]=(brake*162).toInt().toByte()}
             "rpm"->{val raw=((850+gas*2700)*4).toInt();byteArrayOf((raw shr 8).toByte(),raw.toByte())}
+            "coolant"->byteArrayOf((87+sin(phase*.04)*4+40).toInt().toByte())
             "indicators"->ByteArray(5).apply{this[4]=if(now/500%2==0L)when(now/4000%3){0L->2;1L->4;else->6}else 0}
             else->byteArrayOf((45+35*sin(phase*.2)).toInt().toByte())
         }

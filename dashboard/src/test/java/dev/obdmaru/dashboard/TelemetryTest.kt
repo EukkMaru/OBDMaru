@@ -43,6 +43,13 @@ class TelemetryTest {
   assertEquals(16383.75,Telemetry.rpm(byteArrayOf(-1,-1))!!,0.001)
   assertNull(Telemetry.rpm(byteArrayOf(1)))
  }
+ @Test fun standardCoolantUsesUnsignedByteMinusFortyAndMissingIsNotZero() {
+  assertEquals(64.0,Telemetry.coolant(byteArrayOf(0x68))!!,0.001)
+  assertEquals(87.0,Telemetry.coolant(byteArrayOf(0x7F))!!,0.001)
+  assertEquals(-40.0,Telemetry.coolant(byteArrayOf(0))!!,0.001)
+  assertEquals(215.0,Telemetry.coolant(byteArrayOf(-1))!!,0.001)
+  assertNull(Telemetry.coolant(byteArrayOf()))
+ }
  @Test fun indicatorDefinitionUsesMsbOffsetsAndKeepsUnavailableSeparateFromOff() {
   fun lights(raw:Int)=Telemetry.indicators(ByteArray(5).apply{this[4]=raw.toByte()})!!
   assertFalse(lights(0).left);assertFalse(lights(0).right)

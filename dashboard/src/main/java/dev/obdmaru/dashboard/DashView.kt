@@ -135,7 +135,7 @@ class DashView(context: Context) : View(context) {
     }
 
     override fun onDraw(c: Canvas) {
-        val scale = minOf(width / 360f, height / 623f)
+        val scale = minOf(width / 360f, height / 640f)
         c.save()
         c.translate((width - 360 * scale) / 2, 0f)
         c.scale(scale, scale)
@@ -146,6 +146,7 @@ class DashView(context: Context) : View(context) {
         }
         val ts = sample("tcm"); val bs = sample("brake"); val ss = sample("speed")
         val rs = sample("rpm"); val ins = sample("indicators"); val cs = sample("clutch", 2500)
+        val coolantSample = sample("coolant", 2500)
         val t = ts?.let { Telemetry.transmission(it.bytes) }
         val brake = bs?.let { Telemetry.brake(it.bytes) }
         val clutch = cs?.let { Telemetry.transmission(it.bytes) }
@@ -176,14 +177,15 @@ class DashView(context: Context) : View(context) {
 
         text(c, "OUTER · THROTTLE", 12f, 407f, 10f, green, true)
         text(c, "MIDDLE · BRAKE", 186f, 407f, 10f, red, true)
-        text(c, "CLUTCH TEMPERATURES · PROVISIONAL", 12f, 434f, 9f, muted)
+        text(c, "TEMPERATURES · CLUTCHES PROVISIONAL", 12f, 434f, 9f, muted)
         fun temperature(x: Float, label: String, value: Double?) {
-            box(c, x, 443f, 162f, 61f, panel)
-            text(c, label, x + 12, 461f, 10f, cyan, true)
-            text(c, number(value) + if (value == null) "" else "°C", x + 12, 493f, 30f, white, true)
+            box(c, x, 443f, 104f, 61f, panel)
+            text(c, label, x + 10, 461f, 10f, cyan, true)
+            text(c, number(value) + if (value == null) "" else "°C", x + 10, 493f, 24f, white, true)
         }
-        temperature(12f, "CLUTCH 1", clutch?.clutch1)
-        temperature(186f, "CLUTCH 2", clutch?.clutch2)
+        temperature(12f, "COOLANT", coolantSample?.let { Telemetry.coolant(it.bytes) })
+        temperature(128f, "CLUTCH 1", clutch?.clutch1)
+        temperature(244f, "CLUTCH 2", clutch?.clutch2)
         text(c, "Brake √ curve · raw 150 = full arc", 12f, 522f, 10f, muted)
         text(c, "Gas b07/08 ${t?.rawGas7 ?: "—"}/${t?.rawGas8 ?: "—"} · brake b32/33 ${brake?.raw32 ?: "—"}/${brake?.raw33 ?: "—"}",
             12f, 539f, 10f, muted)
@@ -194,7 +196,8 @@ class DashView(context: Context) : View(context) {
         text(c, stat("U19", ts) + " · " + stat("U03", bs), 12f, 573f, 10f, muted)
         text(c, stat("Speed", ss) + " · " + stat("RPM", rs), 12f, 589f, 10f, muted)
         text(c, stat("Clutch", cs) + " · " + stat("Turn", ins), 12f, 605f, 10f, muted)
-        text(c, state.status.take(55), 12f, 621f, 10f, cyan)
+        text(c, stat("Coolant", coolantSample), 12f, 621f, 10f, muted)
+        text(c, state.status.take(55), 12f, 638f, 10f, cyan)
         c.restore()
     }
 }

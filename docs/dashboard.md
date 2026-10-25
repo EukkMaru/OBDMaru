@@ -1,4 +1,4 @@
-# OBDMaru Dash 0.1.9
+# OBDMaru Dash 0.1.10
 
 A portrait circular telemetry display, installed separately as `dev.obdmaru.dashboard` alongside Magic and Watcher. No cruise interpretation is included.
 
@@ -10,6 +10,7 @@ Install the Dashboard APK, grant Nearby devices and notification permissions, an
 
 | Display | Mapping | Status |
 | --- | --- | --- |
+| Coolant | Standard `0105`: unsigned data byte A −40 °C | Standardized definition; 1 Hz target, 2.5-second freshness limit. Missing/stale replies show —. |
 | Engine RPM | Standard `010C`: `(256*A+B)/4` RPM | Canonical standardized engine-speed signal; unsigned bytes, unavailable on missing/short replies. |
 | Turn indicators | Candidate `770/22BC08` b04: left mask `0x02`, right mask `0x04` | Community definition; not yet validated on this vehicle. Sampled state only, no synthetic blink animation. |
 | Speed | Standard `010D`, data byte 0 in km/h | Standard definition; not calibrated to dashboard or GPS. No guessed U19 speed byte. |
@@ -25,7 +26,7 @@ All b-indices are zero-based after removing response service/identifier. Clutch 
 
 ## Timing and logs
 
-The serial scheduler targets U19 and U03 every 100 ms (10 Hz each), with standard speed every 333 ms (approximately 3 Hz). U19 includes throttle, gear **and** clutch temperatures in one ECU reply: the clutch display is updated from that stream only once per second, with no extra temperature request. Header switches and adapter/ECU response times reduce achieved rates. These are targets, not guaranteed bandwidth. On-screen per-channel Hz and sample ages show actual performance; no catch-up bursts or interpolation conceal sparse input. U19/U03/speed expire after 1.5 seconds; the 1 Hz clutch sample expires after 2.5 seconds. Fixed protocol: CAN 11-bit 500 kbit/s, as in the earlier real capture. Standard speed first uses physical engine address `7E0`; rejection, short payload or timeout switches that channel to functional `7DF`.
+The serial scheduler targets U19/U03 at 10 Hz each, standard speed at 3 Hz, RPM at 5 Hz, coolant at 1 Hz and optional indicators at up to 2 Hz. U19 already contains throttle, gear and the provisional clutch temperatures; clutch display samples that stream at 1 Hz without another request. Header switches and adapter/ECU response times reduce achieved rates. On-screen per-channel Hz and sample ages show actual performance; no catch-up bursts conceal sparse input. Motion and indicator readings expire after 1.5 seconds; coolant and clutch after 2.5 seconds. Fixed protocol: CAN 11-bit 500 kbit/s. Speed, RPM and coolant initially use engine address `7E0`; failure of one switches all three to functional `7DF`. Due speed/RPM/coolant requests can share the same header in a bounded group.
 
 Failed, rejected or short replies remove only the affected sample (a U19 failure also clears its clutch display) and back off that channel for 1–5 seconds while others continue. A query/header I/O failure first attempts an adapter resync over the existing Bluetooth socket: send a carriage return to abort, drain through an ELM prompt plus a quiet boundary, then require a fresh recognizable `ATI` identity reply. A late diagnostic prompt alone is not sufficient. If resync fails, close the socket and retry Bluetooth after two seconds, alternating secure/insecure SPP and reapplying settings. Successful reconnections avoid repeated `ATZ` reboots; optional `ATPC` rejection is tolerated. Existing samples retain their original timestamps and age out, rather than being relabeled as fresh. The status and raw logs identify the failed stage and recovery path.
 
@@ -37,7 +38,7 @@ Exact real TX/RX and request outcomes are recorded through the shared transport.
 
 ## Build and verification
 
-Build with `./gradlew :dashboard:assembleDebug`. JVM tests cover unsigned raw data, pedal endpoints, brake overflow, gear nibble masking, two-byte temperature conversion, short payloads and freshness. The Android instrumentation test exercises all three synthetic streams and completed-log export. Emulator tests do not establish actual Bluetooth throughput or physical signal calibration. Android 12+, experimental debug-signed APK.
+Build with `./gradlew :dashboard:assembleDebug`. JVM tests cover unsigned raw data, pedal endpoints, brake overflow, gear nibble masking, two-byte temperature conversion, short payloads and freshness. The Android instrumentation test exercises all current synthetic channels and completed-log export. Emulator tests do not establish actual Bluetooth throughput or physical signal calibration. Android 12+, experimental debug-signed APK.
 
 Version 0.1.1: nine JVM tests cover decoding, target rates, the independent 1 Hz clutch display, rejected reads, timeout resync, broken-socket reconnect, header failure, and setup retry. Existing recorder and Watcher JVM tests are also run. This update is verified with a simulated adapter; no real-vehicle disconnect/reconnect reproduction has been performed. The Android smoke test is updated, but was not rerun on an emulator for this update.
 
@@ -53,11 +54,11 @@ Seventeen Dashboard JVM tests now cover the above behavior, including slow-link 
 
 ## Exclusive connection guard
 
-This version shares a process-lifetime OS socket-name lock with Magic 2.0.2, Watcher 0.1.1 and Dash 0.1.9. Update every installed OBDMaru peer; older builds cause a clear update-required message before Bluetooth connects. While one real session owns the lock, another app names that owner and stops its start attempt. The lock remains held during reconnects and is released after closing Bluetooth, or automatically if the process dies. Demo sessions do not connect and bypass the lock. Arbitrary third-party apps are not controllable or reliably detectable; stop them manually.
+This version shares a process-lifetime OS socket-name lock with Magic 2.0.2, Watcher 0.1.1 and Dash 0.1.10. Update every installed OBDMaru peer; older builds cause a clear update-required message before Bluetooth connects. While one real session owns the lock, another app names that owner and stops its start attempt. The lock remains held during reconnects and is released after closing Bluetooth, or automatically if the process dies. Demo sessions do not connect and bypass the lock. Arbitrary third-party apps are not controllable or reliably detectable; stop them manually.
 
 ## Version 0.1.4 brake response
 
-Brake display uses `100 * sqrt(raw_b32 / 150.0)`: raw 0→0%, 6→20%, 24→40%, 54→60%, 96→80%, 150→100%. The slope is steep near release and progressively flatter as input rises. Raw b32/b33 remain separate and unchanged. Values above raw150 remain above100 numerically; only the bar fill clips at100. This is a user-selected display curve, not a physical percentage, pressure conversion, deceleration or grip estimate. No automatic recalibration changes the reference between sessions. Session metadata records the curve, exponent and raw reference.
+Brake display uses `100 * sqrt(raw_b32 / 150.0)`: raw 0→0%, 6→20%, 24→40%, 54→60%, 96→80%, 150→100%. The slope is steep near release and progressively flatter as input rises. Raw b32/b33 remain separate and unchanged. Values above raw150 remain above100 numerically; only the bar fill clips at 100. This is a user-selected display curve, not a physical percentage, pressure conversion, deceleration or grip estimate. No automatic recalibration changes the reference between sessions. Session metadata records the curve, exponent and raw reference.
 
 Dashboard JVM tests cover the low/high response relationship, exact calibration landmarks, monotonicity, zero, overflow and untouched raw bytes. No emulator or vehicle check performed for this display-only update.
 
@@ -67,9 +68,9 @@ Standard engine RPM (`010C`) targets 5 Hz, sharing physical engine address `7E0`
 
 The [OBDb Tucson indicator candidate](https://github.com/OBDb/Hyundai-Tucson/blob/b1306dc2c54e32ba4344fcbb5fd098ef66db50e7/signalsets/v3/default.json#L59-L63) requests `770/22BC08` with expected response `778`. Source bit offsets37/38 are MSB-indexed: data byte4 bit2 (`0x04`) right and bit1 (`0x02`) left. Both bits set lights both arrows, without asserting a separate hazard-switch state. The raw b04 hex value remains visible for validation. This request was not in the original real capture and remains unverified on the user's car.
 
-Indicator probes begin after the first main telemetry attempts, target2 Hz when core jobs are not badly overdue, and back off30–120 seconds on no-data/rejection. Indicator I/O timeout is capped at1.2 seconds before normal adapter recovery; a rejected reply does not reconnect Bluetooth or reset motion samples. This optional job can run below2 Hz under saturation. There is no invented blink animation or assumption that a lever rather than lamp phase is reported. Polling may miss flashing transitions. Missing/stale replies display question-mark arrows and unavailable status, distinct from two reported-off bits.
+Indicator probes begin after the first main telemetry attempts, target2 Hz when core jobs are not badly overdue, and back off30–120 seconds on no-data/rejection. Indicator I/O timeout is capped at 1.2 seconds before normal adapter recovery; a rejected reply does not reconnect Bluetooth or reset motion samples. This optional job can run below2 Hz under saturation. There is no invented blink animation or assumption that a lever rather than lamp phase is reported. Polling may miss flashing transitions. Missing/stale replies display question-mark arrows and unavailable status, distinct from two reported-off bits.
 
-Current requested data rates total about30 requests/s (U19 10, U03 10, speed3, RPM5, indicators up to2), plus ECU-address commands; actual rates depend on shared adapter throughput. Clutch display still uses existing U19 replies at1 Hz. All per-channel measured rates remain on the portrait screen.
+Current requested data rates total about30 requests/s (U19 10, U03 10, speed3, RPM5, indicators up to 2), plus ECU-address commands; actual rates depend on shared adapter throughput. Clutch display still uses existing U19 replies at 1 Hz. All per-channel measured rates remain on the portrait screen.
 
 Twenty-six Dashboard/shared JVM tests cover RPM byte order/scaling, indicator masks and unknown/off distinction, 5 Hz RPM scheduling, same-header engine grouping and indicator failure backoff. APK/test-APK compilation and lint pass. No emulator or vehicle validation was performed for this update.
 
@@ -100,3 +101,11 @@ The mode badge now shows only D, M, P, R or N (— when unknown). Removed the re
 ## Version 0.1.9 pedal arcs without percentage readouts
 
 Removed the throttle/brake percentage numbers and their cards. Compact color legends identify the two pedal arcs. The clutch readouts and diagnostics move up to use the space. Raw b07/b08 and b32/b33 remain in diagnostics and logs; the brake curve and arc clipping are unchanged. No extra temperature channels were added in this display update.
+
+## Version 0.1.10 standard coolant temperature
+
+A new COOLANT card joins CLUTCH 1/2 in the temperature row. It uses standard PID `0105`, unsigned byte A minus 40 °C, and targets 1 Hz. The 2.5-second freshness limit, missing reply handling and per-channel measured rate prevent an old value or a missing reply from becoming a live zero. The clutch mappings remain provisional and are labeled separately from standard coolant. No guessed warning thresholds or overheat alarms were added.
+
+Coolant is polled using the same engine address as speed and RPM, reusing that header when due. A failed coolant response removes only its own sample and backs off normally; other channels continue. Speed/RPM/coolant share functional-address fallback from 7E0 to 7DF. Current data request targets total about 31/s before header commands. These remain targets, not guaranteed rates. Raw TX/RX, timings, coolant target/freshness and decoding metadata are recorded. Synthetic demo supplies an independent coolant value.
+
+Validation: all 29 Dashboard/shared JVM tests pass, covering unsigned coolant scaling, missing data, 1 Hz scheduling, same-header grouping, coolant failure isolation and functional fallback, alongside existing regressions. APK/test-APK compilation and lint pass. Synthetic host layouts include coolant, missing values and full encoded temperature extremes; no emulator or vehicle validation was performed.

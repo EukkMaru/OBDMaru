@@ -16,6 +16,7 @@ object Telemetry {
         val a=u(bytes,0)?:return null;val b=u(bytes,1)?:return null
         return (a*256+b)/4.0
     }
+    fun coolant(bytes: ByteArray): Double? = u(bytes,0)?.let { it - 40.0 }
     // OBDb indexes bits from MSB: bix37/38 are b04 masks 0x04/0x02.
     fun indicators(bytes: ByteArray): Indicators? = u(bytes,4)?.let { Indicators(it and 2 != 0,it and 4 != 0,it) }
     fun brake(bytes: ByteArray) = Brake(u(bytes,32)?.let { sqrt(it / 150.0) * 100.0 },u(bytes,32),u(bytes,33))

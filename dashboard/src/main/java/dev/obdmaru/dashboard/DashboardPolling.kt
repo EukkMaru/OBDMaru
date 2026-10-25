@@ -20,7 +20,8 @@ class DashboardPolling(
     private val demo: Boolean = false
 ) : Closeable {
     private data class Task(val key: String,var header: String,val command: String,val interval: Long,val size: Int,var due: Long=0,var failures: Int=0,val hint: ReplyHint=ReplyHint(),val optional:Boolean=false)
-    private val tasks = listOf(Task("tcm","7E1","2201A4",100,34), Task("brake","7D1","22C101",100,34), Task("speed","7E0","010D",333,1), Task("rpm","7E0","010C",200,2), Task("indicators","770","22BC08",500,5,optional=true))
+    private val engineChannels = setOf("speed","rpm","coolant")
+    private val tasks = listOf(Task("tcm","7E1","2201A4",100,34), Task("brake","7D1","22C101",100,34), Task("speed","7E0","010D",333,1), Task("rpm","7E0","010C",200,2), Task("coolant","7E0","0105",1000,1), Task("indicators","770","22BC08",500,5,optional=true))
     private val availability = mutableMapOf<String,String>()
     private val samples = mutableMapOf<String,Sample>()
     private val times = mutableMapOf<String,ArrayDeque<Long>>()
@@ -62,8 +63,11 @@ class DashboardPolling(
         val core=ready.filterNot{it.optional}
         val candidate=ready.firstOrNull{it.optional}
         // Optional body reads wait until motion streams have initial data, and never displace badly overdue core work.
-        val primaryReady=listOf("tcm","brake","speed","rpm").all{samples.containsKey(it) || availability.containsKey(it)}
-        val enginePair=if(lastChannel=="speed")core.firstOrNull{it.key=="rpm" && it.header==header}else null
+        val primaryReady=listOf("tcm","brake","speed","rpm","coolant").all{samples.containsKey(it) || availability.containsKey(it)}
+        // A bounded speed -> RPM -> coolant group can reuse the engine header.
+        val enginePair=if(lastChannel=="speed" || lastChannel=="rpm")core.firstOrNull{
+            it.key in engineChannels && it.key!="speed" && it.key!=lastChannel && it.header==header
+        }else null
         val task=core.firstOrNull{it.key=="speed" && lastChannel!="speed"}
             ?: enginePair
             ?: candidate?.takeIf{primaryReady && (core.isEmpty() || (core.all{start-it.due<100} && start-it.due>=500))}
@@ -113,8 +117,8 @@ class DashboardPolling(
         }
     }
     private fun fallbackEngine(task:Task,reason:String) {
-        if(task.key in listOf("speed","rpm") && task.header=="7E0") {
-            tasks.filter{it.key in listOf("speed","rpm")}.forEach{it.header="7DF";it.hint.reset()}
+        if(task.key in engineChannels && task.header=="7E0") {
+            tasks.filter{it.key in engineChannels}.forEach{it.header="7DF";it.hint.reset()}
             event(if(task.key=="speed")"dashboard_speed_fallback"else "dashboard_engine_fallback",mapOf("channel" to task.key,"from" to "7E0","to" to "7DF","reason" to reason))
         }
     }

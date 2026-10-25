@@ -29,7 +29,7 @@ class DashboardPollingTest {
                     val logical=command.take(if(command.startsWith("01"))4 else 6)
                     if(logical==command)time+=finalWait
                     counts[logical]=(counts[logical]?:0)+1
-                    val data=when(logical){"2201A4"->ByteArray(34).apply{this[8]=(counts[logical]!!%255).toByte();this[30]=70;this[32]=75};"22C101"->ByteArray(39);"010C"->byteArrayOf(0x1A,0xF8.toByte());"22BC08"->ByteArray(5).apply{this[4]=6};else->byteArrayOf(50)}
+                    val data=when(logical){"2201A4"->ByteArray(34).apply{this[8]=(counts[logical]!!%255).toByte();this[30]=70;this[32]=75};"22C101"->ByteArray(39);"010C"->byteArrayOf(0x1A,0xF8.toByte());"0105"->byteArrayOf(0x7F);"22BC08"->ByteArray(5).apply{this[4]=6};else->byteArrayOf(50)}
                     val prefix=("%02X".format(logical.take(2).toInt(16)+64)+logical.drop(2)).chunked(2).map{it.toInt(16)}
                     val p=prefix+data.map{it.toInt() and 255}
                     val frames=if(p.size<=7)listOf(listOf(p.size)+p)else listOf(listOf(0x10,p.size)+p.take(6))+p.drop(6).chunked(7).mapIndexed{i,b->listOf(0x20+((i+1)%16))+b}
@@ -48,9 +48,12 @@ class DashboardPollingTest {
         assertTrue(r.counts.getValue("22C101") in 57..61)
         assertTrue(r.counts.getValue("010D") in 17..19)
         assertTrue(r.counts.getValue("010C") in 28..31)
+        assertTrue(r.counts.getValue("0105") in 5..7)
         assertTrue(r.counts.getValue("22BC08") in 9..13)
         assertTrue(r.state.samples.getValue("tcm").hz in 9.5..10.5)
         assertTrue(r.state.samples.getValue("clutch").hz in 0.9..1.1)
+        assertTrue(r.state.samples.getValue("coolant").hz in 0.9..1.1)
+        assertEquals(87.0,Telemetry.coolant(r.state.samples.getValue("coolant").bytes)!!,0.001)
         val previous=r.state.samples.getValue("clutch").at
         while(r.state.samples.getValue("clutch").at==previous)r.poller.step()
         val clutch=r.state.samples.getValue("clutch")
@@ -145,6 +148,25 @@ class DashboardPollingTest {
         val r=Rig();r.run(2000)
         val first=r.commands.indexOf("010D")
         assertEquals("010C",r.commands[first+1])
+        assertEquals("0105",r.commands[first+2])
         assertTrue(r.state.samples.containsKey("rpm"));assertTrue(r.state.samples.containsKey("indicators"))
+    }
+    @Test fun coolantFailureRemovesItsSampleWithoutResettingOtherChannels(){
+        val r=Rig();r.run(1500)
+        assertTrue(r.state.samples.containsKey("coolant"))
+        r.fault={if(it.startsWith("0105"))"NO DATA\r>"else null};r.run(4000)
+        assertFalse(r.state.samples.containsKey("coolant"))
+        assertTrue(r.state.availability.getValue("coolant").startsWith("Unavailable"))
+        assertEquals(1,r.opens);assertEquals(0,r.recoveries)
+        assertTrue(r.state.samples.keys.containsAll(listOf("tcm","brake","speed","rpm","clutch")))
+        assertTrue(r.commands.count{it.startsWith("0105")}<=6)
+    }
+    @Test fun unsupportedPhysicalCoolantSharesFunctionalFallbackWithSpeedAndRpm(){
+        val r=Rig();var physical=true
+        r.fault={if(it=="ATSH7DF"){physical=false;null}else if(physical&&it.startsWith("0105"))"NO DATA\r>"else null}
+        r.run(4000)
+        assertTrue(r.commands.contains("ATSH7DF"));assertEquals(1,r.opens)
+        assertTrue(r.events.contains("dashboard_engine_fallback"))
+        assertTrue(r.state.samples.keys.containsAll(listOf("speed","rpm","coolant")))
     }
 }
