@@ -167,11 +167,9 @@ class DashView(context: Context) : View(context) {
         box(c, 108f, 218f, 144f, 1f, track)
 
         val mode = when (t?.mode) { 1 -> "P"; 3 -> "R"; 5 -> "N"; 7 -> "D"; 10 -> "M"; else -> "—" }
-        val modeLabel = when (mode) { "P" -> "PARK"; "R" -> "REVERSE"; "N" -> "NEUTRAL"; "D" -> "AUTO"; "M" -> "MANUAL"; else -> "UNKNOWN" }
         val modeColor = if (mode == "M") amber else if (mode == "—") muted else cyan
-        box(c, 129f, 226f, 102f, 29f, panel)
-        text(c, mode, 140f, 250f, 26f, modeColor, true)
-        text(c, modeLabel, 168f, 246f, 11f, modeColor, true)
+        box(c, 156f, 226f, 48f, 29f, panel)
+        text(c, mode, 180f, 250f, 26f, modeColor, true, true)
         gears(c, t, now)
         text(c, number(rpm), 180f, 365f, 20f, muted, centered = true)
         text(c, if (rpm == null) "RPM · unavailable" else "RPM · 0–6000", 180f, 380f, 9f, muted, centered = true)

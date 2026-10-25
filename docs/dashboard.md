@@ -1,4 +1,4 @@
-# OBDMaru Dash 0.1.7
+# OBDMaru Dash 0.1.8
 
 A portrait circular telemetry display, installed separately as `dev.obdmaru.dashboard` alongside Magic and Watcher. No cruise interpretation is included.
 
@@ -53,7 +53,7 @@ Seventeen Dashboard JVM tests now cover the above behavior, including slow-link 
 
 ## Exclusive connection guard
 
-This version shares a process-lifetime OS socket-name lock with Magic 2.0.2, Watcher 0.1.1 and Dash 0.1.7. Update every installed OBDMaru peer; older builds cause a clear update-required message before Bluetooth connects. While one real session owns the lock, another app names that owner and stops its start attempt. The lock remains held during reconnects and is released after closing Bluetooth, or automatically if the process dies. Demo sessions do not connect and bypass the lock. Arbitrary third-party apps are not controllable or reliably detectable; stop them manually.
+This version shares a process-lifetime OS socket-name lock with Magic 2.0.2, Watcher 0.1.1 and Dash 0.1.8. Update every installed OBDMaru peer; older builds cause a clear update-required message before Bluetooth connects. While one real session owns the lock, another app names that owner and stops its start attempt. The lock remains held during reconnects and is released after closing Bluetooth, or automatically if the process dies. Demo sessions do not connect and bypass the lock. Arbitrary third-party apps are not controllable or reliably detectable; stop them manually.
 
 ## Version 0.1.4 brake response
 
@@ -92,3 +92,7 @@ RPM now fills the entire inner disk upward behind speed and gear, with a subdued
 Current gear keeps its larger white number without the rectangular highlight. b24 uses a smaller, muted amber number and a thin underline; the persistent `NEXT? … · b24` caption is muted and remains provisional. When b24 equals the current gear, only the subtle underline is added. D/M stays prominent with a calmer manual-mode color. The outer throttle/brake arcs, sliding behavior, telemetry, polling targets, brake curve and logging are unchanged.
 
 Validation: the 26 existing JVM tests, APK/test-APK compilation and lint pass. Synthetic host renders cover empty, partial and full RPM fill, matching b23/b24, D/M, P, seventh gear and missing data. No emulator or phone validation was performed.
+
+## Version 0.1.8 compact mode badge
+
+The mode badge now shows only D, M, P, R or N (— when unknown). Removed the redundant AUTO/MANUAL/PARK/REVERSE/NEUTRAL words and narrowed the badge around its centered letter. Telemetry, polling and the rest of the display are unchanged.

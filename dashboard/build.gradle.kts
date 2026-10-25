@@ -2,7 +2,7 @@ plugins { id("com.android.application"); id("org.jetbrains.kotlin.android") }
 android {
     namespace = "dev.obdmaru.dashboard"
     compileSdk = 35
-    defaultConfig { applicationId = "dev.obdmaru.dashboard"; minSdk = 31; targetSdk = 35; versionCode = 8; versionName = "0.1.7"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
+    defaultConfig { applicationId = "dev.obdmaru.dashboard"; minSdk = 31; targetSdk = 35; versionCode = 9; versionName = "0.1.8"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
     sourceSets["main"].java.srcDir("../shared/src/main/java")
     sourceSets["test"].java.srcDir("../shared/src/test/java")
     sourceSets["androidTest"].java.srcDir("../shared/src/androidTest/java")
