@@ -1,4 +1,4 @@
-# OBDMaru Dash 0.1.10
+# OBDMaru Dash 0.1.11
 
 A portrait circular telemetry display, installed separately as `dev.obdmaru.dashboard` alongside Magic and Watcher. No cruise interpretation is included.
 
@@ -10,7 +10,7 @@ Install the Dashboard APK, grant Nearby devices and notification permissions, an
 
 | Display | Mapping | Status |
 | --- | --- | --- |
-| Coolant | Standard `0105`: unsigned data byte A −40 °C | Standardized definition; 1 Hz target, 2.5-second freshness limit. Missing/stale replies show —. |
+| Coolant | Standard `0105`: unsigned data byte A −40 °C | Standardized definition; adaptive background target 1/0.5/0.2 Hz. Age and current target are visible; after 7.5 seconds without a fresh sample it shows —. |
 | Engine RPM | Standard `010C`: `(256*A+B)/4` RPM | Canonical standardized engine-speed signal; unsigned bytes, unavailable on missing/short replies. |
 | Turn indicators | Candidate `770/22BC08` b04: left mask `0x02`, right mask `0x04` | Community definition; not yet validated on this vehicle. Sampled state only, no synthetic blink animation. |
 | Speed | Standard `010D`, data byte 0 in km/h | Standard definition; not calibrated to dashboard or GPS. No guessed U19 speed byte. |
@@ -26,9 +26,9 @@ All b-indices are zero-based after removing response service/identifier. Clutch 
 
 ## Timing and logs
 
-The serial scheduler targets U19/U03 at 10 Hz each, standard speed at 3 Hz, RPM at 5 Hz, coolant at 1 Hz and optional indicators at up to 2 Hz. U19 already contains throttle, gear and the provisional clutch temperatures; clutch display samples that stream at 1 Hz without another request. Header switches and adapter/ECU response times reduce achieved rates. On-screen per-channel Hz and sample ages show actual performance; no catch-up bursts conceal sparse input. Motion and indicator readings expire after 1.5 seconds; coolant and clutch after 2.5 seconds. Fixed protocol: CAN 11-bit 500 kbit/s. Speed, RPM and coolant initially use engine address `7E0`; failure of one switches all three to functional `7DF`. Due speed/RPM/coolant requests can share the same header in a bounded group.
+The serial scheduler targets U19/U03 at 10 Hz each, standard speed at 3 Hz, RPM at 5 Hz, coolant at up to 1 Hz using spare capacity and optional indicators at up to 2 Hz. U19 already contains throttle, gear and the provisional clutch temperatures; clutch display samples that stream at 1 Hz without another request. Header switches and adapter/ECU response times reduce achieved rates. On-screen per-channel Hz and sample ages show actual performance; no catch-up bursts conceal sparse input. Motion and indicator readings expire after 1.5 seconds; clutch after 2.5 seconds and coolant after 7.5 seconds. Fixed protocol: CAN 11-bit 500 kbit/s. Speed, RPM and coolant initially use engine address `7E0`; failure of one switches all three to functional `7DF`. Due speed/RPM requests share a bounded group; coolant joins only if its background budget allows, or for an occasional overdue refresh at the same address.
 
-Failed, rejected or short replies remove only the affected sample (a U19 failure also clears its clutch display) and back off that channel for 1–5 seconds while others continue. A query/header I/O failure first attempts an adapter resync over the existing Bluetooth socket: send a carriage return to abort, drain through an ELM prompt plus a quiet boundary, then require a fresh recognizable `ATI` identity reply. A late diagnostic prompt alone is not sufficient. If resync fails, close the socket and retry Bluetooth after two seconds, alternating secure/insecure SPP and reapplying settings. Successful reconnections avoid repeated `ATZ` reboots; optional `ATPC` rejection is tolerated. Existing samples retain their original timestamps and age out, rather than being relabeled as fresh. The status and raw logs identify the failed stage and recovery path.
+Failed, rejected or short replies remove only the affected sample (a U19 failure also clears its clutch display). Foreground channels back off for 1–5 seconds while others continue; coolant and optional indicators use the longer background backoff described below. A query/header I/O failure first attempts an adapter resync over the existing Bluetooth socket: send a carriage return to abort, drain through an ELM prompt plus a quiet boundary, then require a fresh recognizable `ATI` identity reply. A late diagnostic prompt alone is not sufficient. If resync fails, close the socket and retry Bluetooth after two seconds, alternating secure/insecure SPP and reapplying settings. Successful reconnections avoid repeated `ATZ` reboots; optional `ATPC` rejection is tolerated. Existing samples retain their original timestamps and age out, rather than being relabeled as fresh. The status and raw logs identify the failed stage and recovery path.
 
 The owner subsequently confirmed that Watcher was still polling in the background during the disconnecting Dash run; stopping Watcher resolved disconnections. That is the established explanation for that run. The recovery changes remain, but must not be cited as proof of an adapter fault.
 
@@ -54,7 +54,7 @@ Seventeen Dashboard JVM tests now cover the above behavior, including slow-link 
 
 ## Exclusive connection guard
 
-This version shares a process-lifetime OS socket-name lock with Magic 2.0.2, Watcher 0.1.1 and Dash 0.1.10. Update every installed OBDMaru peer; older builds cause a clear update-required message before Bluetooth connects. While one real session owns the lock, another app names that owner and stops its start attempt. The lock remains held during reconnects and is released after closing Bluetooth, or automatically if the process dies. Demo sessions do not connect and bypass the lock. Arbitrary third-party apps are not controllable or reliably detectable; stop them manually.
+This version shares a process-lifetime OS socket-name lock with Magic 2.0.2, Watcher 0.1.1 and Dash 0.1.11. Update every installed OBDMaru peer; older builds cause a clear update-required message before Bluetooth connects. While one real session owns the lock, another app names that owner and stops its start attempt. The lock remains held during reconnects and is released after closing Bluetooth, or automatically if the process dies. Demo sessions do not connect and bypass the lock. Arbitrary third-party apps are not controllable or reliably detectable; stop them manually.
 
 ## Version 0.1.4 brake response
 
@@ -104,8 +104,34 @@ Removed the throttle/brake percentage numbers and their cards. Compact color leg
 
 ## Version 0.1.10 standard coolant temperature
 
+Historical fixed-rate behavior; version 0.1.11 below adds adaptive background scheduling.
+
 A new COOLANT card joins CLUTCH 1/2 in the temperature row. It uses standard PID `0105`, unsigned byte A minus 40 °C, and targets 1 Hz. The 2.5-second freshness limit, missing reply handling and per-channel measured rate prevent an old value or a missing reply from becoming a live zero. The clutch mappings remain provisional and are labeled separately from standard coolant. No guessed warning thresholds or overheat alarms were added.
 
 Coolant is polled using the same engine address as speed and RPM, reusing that header when due. A failed coolant response removes only its own sample and backs off normally; other channels continue. Speed/RPM/coolant share functional-address fallback from 7E0 to 7DF. Current data request targets total about 31/s before header commands. These remain targets, not guaranteed rates. Raw TX/RX, timings, coolant target/freshness and decoding metadata are recorded. Synthetic demo supplies an independent coolant value.
 
 Validation: all 29 Dashboard/shared JVM tests pass, covering unsigned coolant scaling, missing data, 1 Hz scheduling, same-header grouping, coolant failure isolation and functional fallback, alongside existing regressions. APK/test-APK compilation and lint pass. Synthetic host layouts include coolant, missing values and full encoded temperature extremes; no emulator or vehicle validation was performed.
+
+## Version 0.1.11 adaptive coolant polling
+
+Coolant no longer competes as a normal foreground job. Once per second, the scheduler estimates foreground load using smoothed, measured request durations (including actual header costs) divided by the requested periods. A load below 70% with less than 25 ms current lateness selects a 1-second coolant period; medium load/lateness selects 2 seconds; load at least 90% or lateness at least 100 ms selects 5 seconds. These are scheduling thresholds, not temperature thresholds. As capacity recovers, the target returns to 1 Hz.
+
+A normal coolant read waits until no foreground job is due and the next foreground deadline has enough room for its predicted query cost, address changes if needed, and a 5 ms guard. It prefers the current engine address; if a separate address change would be needed, it first waits 250 ms for a chance to reuse that address. Deferred background work sleeps only until the next foreground deadline rather than oversleeping it by a fixed 25 ms. Predictions cannot guarantee that an unexpectedly slow request will fit.
+
+To avoid indefinite starvation under sustained saturation, a coolant request that has waited 2 seconds beyond its adaptive deadline may run on the next visit to its engine address even if foreground work is due. That occasional refresh still has a real cost; it is not a zero-overhead guarantee. The coolant I/O timeout is capped at 1.2 seconds. A physical-address failure gets a prompt functional-address retry; repeated unsupported/failed reads back off 30–120 seconds. Hint-syntax rejection still gets an unrestricted retry. Normal failure recovery and raw logging remain.
+
+The actual sample timestamp is never refreshed without a reply. Coolant remains displayable for 7.5 seconds to accommodate slower refreshes; after that the numeric card shows —. Its real age, measured Hz and current target Hz appear in diagnostics. Coolant uses a 15-second rate window so slow polling reports a measured rate rather than repeatedly showing 0 Hz. Clutch freshness stays 2.5 seconds. Logs include `dashboard_coolant_policy`, `dashboard_coolant_deferred`, and per-poll policy/forced-refresh fields.
+
+Validation: 33 JVM tests pass, including nominal rates, saturation, return to 1 Hz after capacity recovers, failure backoff, moderate/demo timing and the existing decoding/recovery checks. APK/test-APK compilation and lint pass. Host-rendered synthetic previews check adaptive target/age display and expiry. No emulator or vehicle validation performed.
+
+A 40-second comparison against the 0.1.10 scheduler used identical simulated 60 ms diagnostic requests and 10 ms adapter commands:
+
+| Successful queries | 0.1.10 | 0.1.11 |
+| --- | ---: | ---: |
+| Coolant | 37 | 6 |
+| Throttle/gear block | 148 | 155 |
+| Brake block | 148 | 154 |
+| Speed | 111 | 117 |
+| RPM | 111 | 117 |
+
+On a fast simulated link (5 ms requests/adapter commands), both versions produced 40 coolant, 120 speed, 199 RPM, 398 throttle/gear and 397 brake replies. This demonstrates the tradeoff in the simulation; real adapter throughput must be measured in a new drive log.

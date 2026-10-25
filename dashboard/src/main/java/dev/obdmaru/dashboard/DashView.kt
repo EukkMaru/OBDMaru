@@ -146,7 +146,7 @@ class DashView(context: Context) : View(context) {
         }
         val ts = sample("tcm"); val bs = sample("brake"); val ss = sample("speed")
         val rs = sample("rpm"); val ins = sample("indicators"); val cs = sample("clutch", 2500)
-        val coolantSample = sample("coolant", 2500)
+        val coolantSample = sample("coolant", DashboardPolling.COOLANT_MAX_AGE_MS)
         val t = ts?.let { Telemetry.transmission(it.bytes) }
         val brake = bs?.let { Telemetry.brake(it.bytes) }
         val clutch = cs?.let { Telemetry.transmission(it.bytes) }
@@ -196,7 +196,7 @@ class DashView(context: Context) : View(context) {
         text(c, stat("U19", ts) + " · " + stat("U03", bs), 12f, 573f, 10f, muted)
         text(c, stat("Speed", ss) + " · " + stat("RPM", rs), 12f, 589f, 10f, muted)
         text(c, stat("Clutch", cs) + " · " + stat("Turn", ins), 12f, 605f, 10f, muted)
-        text(c, stat("Coolant", coolantSample), 12f, 621f, 10f, muted)
+        text(c, stat("Coolant", coolantSample)+String.format(Locale.US," · target %.1fHz",1000.0/state.coolantIntervalMs), 12f, 621f, 10f, muted)
         text(c, state.status.take(55), 12f, 638f, 10f, cyan)
         c.restore()
     }

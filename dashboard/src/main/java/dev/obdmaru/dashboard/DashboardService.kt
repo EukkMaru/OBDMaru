@@ -38,12 +38,14 @@ class DashboardService : Service() {
         var attempt = 0
         try {
             if (!demo) lease = ObdConnectionGuard.acquire(this)
-            log = SessionLog(this,address,"Dashboard",demo,"dashboard-0.1.10");lastFile=log.file
+            log = SessionLog(this,address,"Dashboard",demo,"dashboard-0.1.11");lastFile=log.file
             val session = log
             log.event("obd_connection_guard", "exclusive" to !demo, "demo" to demo)
             log.event("dashboard_start","tcm_target_hz" to 10,"brake_target_hz" to 10,"speed_target_hz" to 3,"clutch_display_hz" to 1,
                 "rpm_target_hz" to 5, "indicators_target_hz" to 2, "indicators_candidate" to true,
-                "coolant_target_hz" to 1, "coolant_stale_ms" to 2500,
+                "coolant_target_hz" to 1, "coolant_adaptive_intervals_ms" to "1000,2000,5000",
+                "coolant_stale_ms" to DashboardPolling.COOLANT_MAX_AGE_MS,
+                "coolant_background_budget" to true, "coolant_max_defer_ms" to 2000,
                 "display_layout" to "circular_level_gear_strip", "rpm_fill_reference" to 6000,
                 "rpm_fill_mapping" to "linear_vertical_level",
                 "brake_display_curve" to "square_root", "brake_raw_reference" to 150, "brake_display_exponent" to 0.5,

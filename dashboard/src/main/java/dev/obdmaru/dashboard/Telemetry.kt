@@ -30,4 +30,4 @@ data class Transmission(val gas: Double?,val gasAlt: Double?,val rawGas7: Int?,v
 data class Indicators(val left:Boolean,val right:Boolean,val raw4:Int)
 data class Brake(val percent: Double?,val raw32: Int?,val raw33: Int?)
 data class Sample(val bytes: ByteArray, val at: Long, val hz: Double)
-data class DashState(val samples: Map<String,Sample> = emptyMap(),val status: String = "Ready",val demo: Boolean = false,val availability: Map<String,String> = emptyMap())
+data class DashState(val samples: Map<String,Sample> = emptyMap(),val status: String = "Ready",val demo: Boolean = false,val availability: Map<String,String> = emptyMap(),val coolantIntervalMs:Long=1000)

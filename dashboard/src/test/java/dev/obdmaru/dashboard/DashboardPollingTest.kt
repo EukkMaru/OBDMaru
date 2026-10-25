@@ -148,8 +148,8 @@ class DashboardPollingTest {
         val r=Rig();r.run(2000)
         val first=r.commands.indexOf("010D")
         assertEquals("010C",r.commands[first+1])
-        assertEquals("0105",r.commands[first+2])
         assertTrue(r.state.samples.containsKey("rpm"));assertTrue(r.state.samples.containsKey("indicators"))
+        assertTrue(r.state.samples.containsKey("coolant"))
     }
     @Test fun coolantFailureRemovesItsSampleWithoutResettingOtherChannels(){
         val r=Rig();r.run(1500)
@@ -168,5 +168,42 @@ class DashboardPollingTest {
         assertTrue(r.commands.contains("ATSH7DF"));assertEquals(1,r.opens)
         assertTrue(r.events.contains("dashboard_engine_fallback"))
         assertTrue(r.state.samples.keys.containsAll(listOf("speed","rpm","coolant")))
+    }
+    @Test fun saturatedLinkThrottlesCoolantAndRefreshesWithoutExtraHeaderSwitches(){
+        val r=Rig();r.headerCost=10;r.queryCost=60
+        val coolantTimings=mutableListOf<Map<String,Any?>>()
+        r.onEvent={type,fields->if(type=="dashboard_poll_timing" && fields["channel"]=="coolant")coolantTimings+=fields}
+        r.run(40000)
+        assertEquals(5000L,r.state.coolantIntervalMs)
+        assertTrue("coolant=${r.counts["0105"]}",r.counts.getValue("0105") in 4..9)
+        assertTrue(coolantTimings.all{it["header_ms"]==0L})
+        assertTrue(coolantTimings.any{it["coolant_forced_refresh"]==true})
+        assertTrue(r.events.contains("dashboard_coolant_deferred"))
+        assertTrue(r.state.samples.getValue("coolant").hz in .1.. .3)
+        assertTrue(r.counts.getValue("2201A4")>60);assertTrue(r.counts.getValue("22C101")>60)
+        assertTrue(Telemetry.fresh(r.state.samples.getValue("coolant").at,r.time,DashboardPolling.COOLANT_MAX_AGE_MS))
+    }
+    @Test fun coolantReturnsToOneHertzAfterAdapterRecoversCapacity(){
+        val r=Rig();r.headerCost=10;r.queryCost=60;r.run(20000)
+        assertEquals(5000L,r.state.coolantIntervalMs)
+        r.headerCost=5;r.queryCost=5;r.run(10000)
+        assertEquals(1000L,r.state.coolantIntervalMs)
+        val before=r.counts.getValue("0105");r.run(5000)
+        assertTrue(r.counts.getValue("0105")-before in 4..6)
+        assertTrue(r.state.samples.getValue("tcm").hz>9)
+    }
+    @Test fun failedBackgroundCoolantDoesNotRetryAtOneHertz(){
+        val r=Rig();r.fault={if(it.startsWith("0105"))"NO DATA\r>"else null};r.run(20000)
+        assertEquals(2,r.commands.count{it.startsWith("0105")}) // Physical probe, then functional probe.
+        assertEquals(0,r.recoveries);assertFalse(r.state.samples.containsKey("coolant"))
+        assertTrue(r.counts.getValue("2201A4")>180);assertTrue(r.counts.getValue("010C")>90)
+    }
+    @Test fun demoTimingStillRefreshesAllChannelsWhileProtectingPedalRates(){
+        val r=Rig();r.headerCost=0;r.queryCost=35;r.run(20000)
+        assertEquals(7,r.state.samples.size)
+        assertTrue(r.state.samples.getValue("tcm").hz>7)
+        assertTrue(r.state.samples.getValue("brake").hz>7)
+        assertTrue(r.state.samples.getValue("speed").hz>2)
+        assertTrue(r.state.samples.getValue("coolant").hz>0)
     }
 }
