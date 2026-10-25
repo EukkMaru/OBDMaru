@@ -69,7 +69,7 @@ A separately installable portrait raw-byte monitor for the 20 observed unknown b
 
 ## Dashboard app
 
-[OBDMaru Dash](docs/dashboard.md) is a separate portrait display with circular throttle/brake/RPM arcs, numeric OBD speed, a sliding gear strip, prominent D/M mode, provisional b24 highlighting, sampled indicators and clutch temperatures. Includes synthetic demo, sample freshness and raw logs. Build with `./gradlew :dashboard:assembleDebug`.
+[OBDMaru Dash](docs/dashboard.md) is a separate portrait display with throttle/brake arcs around an RPM circle that fills upward, numeric OBD speed, a sliding gear strip, prominent D/M mode, subtle provisional b24 highlighting, sampled indicators and clutch temperatures. Includes synthetic demo, sample freshness and raw logs. Build with `./gradlew :dashboard:assembleDebug`.
 
 ## Magic 2.0.1: continuous control instructions
 

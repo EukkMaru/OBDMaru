@@ -6,8 +6,6 @@ import android.os.SystemClock
 import android.view.View
 import java.util.Locale
 import kotlin.math.abs
-import kotlin.math.cos
-import kotlin.math.sin
 
 class DashView(context: Context) : View(context) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -19,11 +17,13 @@ class DashView(context: Context) : View(context) {
     private val green = Color.rgb(58, 224, 153)
     private val red = Color.rgb(255, 87, 101)
     private val cyan = Color.rgb(67, 205, 227)
-    private val amber = Color.rgb(255, 198, 92)
+    private val amber = Color.rgb(185, 164, 127)
     private val panel = Color.rgb(24, 34, 47)
     private val track = Color.rgb(33, 47, 63)
-    private val redTrack = Color.rgb(124, 49, 62)
-    private val redDots = DashPathEffect(floatArrayOf(1f, 6f), 0f)
+    private val rpmBackground = Color.rgb(15, 25, 35)
+    private val rpmFill = Color.rgb(22, 60, 67)
+    private val rpmSurface = Color.rgb(41, 100, 106)
+    private val rpmClip = Path().apply { addCircle(180f, 222f, 123f, Path.Direction.CW) }
     private val bounds = RectF()
     private var gearTarget: Int? = null
     private var gearFrom = 0f
@@ -76,32 +76,21 @@ class DashView(context: Context) : View(context) {
         paint.style = Paint.Style.FILL
     }
 
-    private fun rpmRing(c: Canvas, rpm: Double?) {
-        ring(c, 123f, 8f, null, 6000.0, cyan)
-        paint.style = Paint.Style.STROKE
-        paint.strokeWidth = 8f
-        paint.color = redTrack
-        paint.pathEffect = redDots
-        c.drawArc(bounds, 345f, 25f, false, paint) // 4500–5000 RPM.
-        paint.pathEffect = null
-        c.drawArc(bounds, 370f, 50f, false, paint) // 5000–6000 RPM.
-        if (rpm != null && rpm > 0) {
-            val sweep = (300 * (rpm / 6000.0).coerceIn(0.0, 1.0)).toFloat()
-            paint.color = cyan
-            c.drawArc(bounds, 120f, minOf(sweep, 225f), false, paint)
-            if (sweep > 225) {
-                paint.color = red
-                paint.pathEffect = redDots
-                c.drawArc(bounds, 345f, minOf(sweep - 225f, 25f), false, paint)
-                paint.pathEffect = null
-                if (sweep > 250) c.drawArc(bounds, 370f, sweep - 250f, false, paint)
-            }
-        }
+    private fun rpmCircle(c: Canvas, rpm: Double?) {
         paint.style = Paint.Style.FILL
-        for (thousands in 1..5) {
-            val angle = Math.toRadians(120.0 + 50 * thousands)
-            text(c, thousands.toString(), 180 + 109 * cos(angle).toFloat(),
-                225 + 109 * sin(angle).toFloat(), 8f, if (thousands >= 5) red else muted, centered = true)
+        paint.color = rpmBackground
+        c.drawCircle(180f, 222f, 123f, paint)
+        if (rpm != null && rpm > 0) {
+            // A horizontal level rises through the whole disk, behind the readouts.
+            // The level, rather than a sweep angle, maps linearly to 0–6000 RPM.
+            val level = 345f - 246f * (rpm / 6000.0).coerceIn(0.0, 1.0).toFloat()
+            c.save()
+            c.clipPath(rpmClip)
+            paint.color = rpmFill
+            c.drawRect(57f, level, 303f, 345f, paint)
+            paint.color = rpmSurface
+            c.drawRect(57f, level, 303f, level + 1f, paint)
+            c.restore()
         }
     }
 
@@ -133,18 +122,16 @@ class DashView(context: Context) : View(context) {
                 val x = 180 + (gear - position) * 47
                 val active = gear == selected
                 val prepared = gear == t?.nextGear
-                if (active) box(c, x - 21, 258f, 42f, 46f, track)
                 text(c, gear.toString(), x, if (active) 298f else 291f,
-                    if (active) 44f else if (prepared) 30f else 22f,
-                    if (active) white else if (prepared) amber else dim, active || prepared, true)
-                if (prepared) box(c, x - 10, 301f, 20f, 3f, amber)
+                    if (active) 42f else if (prepared) 24f else 22f,
+                    if (active) white else if (prepared) amber else dim, active, true)
+                if (prepared) box(c, x - 7, 301f, 14f, 1f, amber)
             }
             c.restore()
             if (now - gearStarted < 180) postInvalidateOnAnimation()
         }
         val next = when (t?.nextGear) { in 1..7 -> t!!.nextGear.toString(); 14 -> "R"; else -> "—" }
-        text(c, "NEXT? $next · b24", 180f, 320f, 10f,
-            if (next == "—") muted else amber, true, true)
+        text(c, "NEXT? $next · b24", 180f, 320f, 9f, muted, centered = true)
     }
 
     override fun onDraw(c: Canvas) {
@@ -171,7 +158,7 @@ class DashView(context: Context) : View(context) {
 
         ring(c, 160f, 13f, t?.gas, 100.0, green)
         ring(c, 142f, 13f, brake?.percent, 100.0, red)
-        rpmRing(c, rpm)
+        rpmCircle(c, rpm)
         text(c, "km/h · OBD", 180f, 139f, 10f, muted, centered = true)
         text(c, ss?.bytes?.let { Telemetry.u(it, 0) }?.toString() ?: "—",
             180f, 202f, 66f, white, true, true)
@@ -186,8 +173,8 @@ class DashView(context: Context) : View(context) {
         text(c, mode, 140f, 250f, 26f, modeColor, true)
         text(c, modeLabel, 168f, 246f, 11f, modeColor, true)
         gears(c, t, now)
-        text(c, number(rpm), 180f, 351f, 22f, if (rpm != null && rpm >= 4500) red else cyan, true, true)
-        text(c, "RPM · 0–6000", 180f, 369f, 9f, muted, centered = true)
+        text(c, number(rpm), 180f, 365f, 20f, muted, centered = true)
+        text(c, if (rpm == null) "RPM · unavailable" else "RPM · 0–6000", 180f, 380f, 9f, muted, centered = true)
 
         fun pedal(x: Float, label: String, value: Double?, color: Int) {
             box(c, x, 390f, 162f, 55f, panel)

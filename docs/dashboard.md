@@ -1,4 +1,4 @@
-# OBDMaru Dash 0.1.6
+# OBDMaru Dash 0.1.7
 
 A portrait circular telemetry display, installed separately as `dev.obdmaru.dashboard` alongside Magic and Watcher. No cruise interpretation is included.
 
@@ -53,7 +53,7 @@ Seventeen Dashboard JVM tests now cover the above behavior, including slow-link 
 
 ## Exclusive connection guard
 
-This version shares a process-lifetime OS socket-name lock with Magic 2.0.2, Watcher 0.1.1 and Dash 0.1.6. Update every installed OBDMaru peer; older builds cause a clear update-required message before Bluetooth connects. While one real session owns the lock, another app names that owner and stops its start attempt. The lock remains held during reconnects and is released after closing Bluetooth, or automatically if the process dies. Demo sessions do not connect and bypass the lock. Arbitrary third-party apps are not controllable or reliably detectable; stop them manually.
+This version shares a process-lifetime OS socket-name lock with Magic 2.0.2, Watcher 0.1.1 and Dash 0.1.7. Update every installed OBDMaru peer; older builds cause a clear update-required message before Bluetooth connects. While one real session owns the lock, another app names that owner and stops its start attempt. The lock remains held during reconnects and is released after closing Bluetooth, or automatically if the process dies. Demo sessions do not connect and bypass the lock. Arbitrary third-party apps are not controllable or reliably detectable; stop them manually.
 
 ## Version 0.1.4 brake response
 
@@ -75,6 +75,8 @@ Twenty-six Dashboard/shared JVM tests cover RPM byte order/scaling, indicator ma
 
 ## Version 0.1.6 circular layout
 
+Historical layout; version 0.1.7 below replaces the RPM arc and reduces the highlights.
+
 Three concentric bar arcs run clockwise from roughly 7 o'clock to 5 o'clock. Outer green is throttle; middle red is the existing nonlinear relative brake percentage; inner cyan fills with canonical engine RPM. The RPM scale is 0–6000, with dotted red from 4500–5000 and solid red from 5000–6000, matching the owner's instrument-cluster description. Filled portions of the red zone become brighter red. Arc fill clips at its scale limit while numeric RPM and pedal readings retain overflow. These zones are display markings, not new ECU limits or an inferred shift recommendation.
 
 The upper interior shows plain numeric OBD speed. The lower interior has a large `D AUTO` / `M MANUAL` badge (or P/R/N/unknown) and a horizontal gear strip. The current forward gear is largest in white; neighboring gears slide past it on adjacent shifts. b24's gear is amber with an underline and a persistent `NEXT? … · b24` label, even when it lies outside the visible strip. If b23 and b24 agree, the current gear remains white and gains the amber underline. b24 is still provisional; the display does not establish clutch preselection. P/R/N and missing gear data show their literal state instead of an invented forward gear. Non-adjacent jumps and recovery from missing data snap directly to the reported gear; only the strip position is animated for 180 ms, never speed, pedal, gear values or blink timing.
@@ -82,3 +84,11 @@ The upper interior shows plain numeric OBD speed. The lower interior has a large
 Clutch readouts, sampled indicator arrows, raw-byte comparisons, measured per-channel rates, stale-data handling and logging remain available. All polling targets and the brake curve are unchanged. Synthetic demo now alternates D/M and provides a separate b24 value to exercise the highlights; this is generated data, not evidence about the real field.
 
 Validation: APK and test-APK compilation, lint and the 26 existing JVM tests pass. Layout previews execute the drawing code with a lightweight host graphics adapter using synthetic states (D, M, P, seventh gear, brake overflow and unavailable data); font metrics can differ on Android. No emulator or vehicle check was performed.
+
+## Version 0.1.7 circular RPM fill
+
+RPM now fills the entire inner disk upward behind speed and gear, with a subdued teal fill and horizontal surface. The fill's vertical level maps linearly from 0 RPM (empty) to 6000 RPM (full). Numeric RPM retains values above the fill scale; missing/stale data shows unavailable with no filled area. There is no RPM arc, tick scale, redline marking or color change at 4500/5000. The owner's redline description was reference information, not a request for those markings.
+
+Current gear keeps its larger white number without the rectangular highlight. b24 uses a smaller, muted amber number and a thin underline; the persistent `NEXT? … · b24` caption is muted and remains provisional. When b24 equals the current gear, only the subtle underline is added. D/M stays prominent with a calmer manual-mode color. The outer throttle/brake arcs, sliding behavior, telemetry, polling targets, brake curve and logging are unchanged.
+
+Validation: the 26 existing JVM tests, APK/test-APK compilation and lint pass. Synthetic host renders cover empty, partial and full RPM fill, matching b23/b24, D/M, P, seventh gear and missing data. No emulator or phone validation was performed.
