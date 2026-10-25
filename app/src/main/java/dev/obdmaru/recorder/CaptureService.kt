@@ -56,11 +56,14 @@ class CaptureService : Service() {
         val name = intent.getStringExtra("name") ?: "Demo"
         worker = thread(name = "obd-capture") {
             var reason = "stopped"
+            var lease: ConnectionLease? = null
             try {
+                if (!demo) lease = ObdConnectionGuard.acquire(this)
                 wake = getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "OBDMaru:capture")
                     .apply { acquire(2 * 60 * 60 * 1000L) }
-                val session = SessionLog(this, address, name, demo, "2.0.1")
+                val session = SessionLog(this, address, name, demo, "2.0.2")
                 log = session; currentFile = session.file
+                session.event("obd_connection_guard", "exclusive" to !demo, "demo" to demo)
                 speaker?.log = session
                 session.event("plan", "capture_mode" to if (guided) "GUIDED" else "MAGIC", "minimum_gap_ms" to 15,
                     "scope" to "prioritized fast signals plus finite read-only discovery", "speech_state" to speaker?.state)
@@ -80,11 +83,13 @@ class CaptureService : Service() {
                     { latest = it }, { guideTick(session) }).run()
                 if (active) reason = "two_hour_limit"
             } catch (e: Exception) {
+                if (e is ObdGuardException) Handler(Looper.getMainLooper()).post { android.widget.Toast.makeText(this,e.message,android.widget.Toast.LENGTH_LONG).show() }
                 reason = if (active) "error: $e" else "stopped"
                 try { if (active) log?.event("capture_error", "error" to e.toString(), "stack" to e.stackTraceToString()) } catch (_: Exception) {}
             } finally {
                 active = false
                 transport?.close(); transport = null
+                lease?.close(); lease = null
                 try { log?.close(reason) } catch (_: Exception) {}
                 speaker?.log = null
                 log = null

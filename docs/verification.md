@@ -35,3 +35,12 @@ This does not validate hardware throughput, physical signal meanings, audible vo
 - 26 JVM tests pass, including transition ordering, speech-time accounting and raw candidate observations; 5 Python replay/summary tests pass.
 - Android app and instrumented-test APKs compile; lint has no errors. No emulator or vehicle run performed for this update. Physical audio output and the full real drive still need verification on the phone.
 - Build uses persistent disk storage, one Gradle worker, 768 MiB Gradle heap and no retained daemon. No emulator or large files are placed in /tmp.
+
+## Shared connection guard
+
+- Builds: Magic 2.0.2 / code 4; Watcher 0.1.1 / code 2; Dash 0.1.3 / code 4.
+- Shared atomic abstract-socket bind is acquired before any real Bluetooth connect and held through reconnection. Owner marker identifies the active OBDMaru app; kernel closes descriptors on process death. Unexpected lock errors fail closed.
+- Installed legacy peers are visible through explicit package queries and block real captures until upgraded/uninstalled. Third-party serial ownership cannot be guaranteed by this cooperative guard.
+- 58 JVM tests pass across modules, including each app pairing, simultaneous acquisition, cleanup, and idempotent release. All three app/test APKs build and lint passes.
+- Android cross-app integration tests are compiled but were not executed. The first isolated emulator boot stopped at its 2 GiB cgroup cap; a bounded retry was stopped on user feedback. No device/cross-UID runtime verification is claimed. No emulator or Gradle daemon remains running.
+- Persistent project instructions now prohibit emulator startup without explicit user request and large artifacts on RAM-backed /tmp.

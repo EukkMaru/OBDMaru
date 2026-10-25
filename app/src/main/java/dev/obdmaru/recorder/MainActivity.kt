@@ -57,7 +57,7 @@ class MainActivity : Activity() {
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(28, 32, 28, 24); setBackgroundColor(Color.rgb(12,20,28)) }
         fun text(s: String, size: Float = 16f) = TextView(this).apply { text = s; textSize = size; setTextColor(Color.rgb(215,233,235)); setPadding(0,12,0,12); root.addView(this) }
         fun button(s: String, action: () -> Unit) = Button(this).apply { text=s; setOnClickListener { action() }; root.addView(this) }
-        text("OBDMaru / MAGIC 2.0.1", 26f)
+        text("OBDMaru / MAGIC 2.0.2", 26f)
         text("2018 Tucson TL · 1.7D · dry DCT\nRaw capture, including failed requests. Configure while parked.")
         status = text("Ready", 15f)
         modeSpinner = Spinner(this)

@@ -32,8 +32,11 @@ class WatcherService : Service() {
     @Suppress("MissingPermission")
     private fun capture(address: String, demo: Boolean) {
         var log: SessionLog? = null
+        var lease: ConnectionLease? = null
         try {
-            log = SessionLog(this, address, "Watcher", demo, "watcher-0.1.0"); lastFile = log.file
+            if (!demo) lease = ObdConnectionGuard.acquire(this)
+            log = SessionLog(this, address, "Watcher", demo, "watcher-0.1.1"); lastFile = log.file
+            log.event("obd_connection_guard", "exclusive" to !demo, "demo" to demo)
             log.event("watcher_start", "index_basis" to "zero-based data bytes, service and identifier excluded", "target_hz" to targetHz)
             var current: Block? = null
             var currentHz = 0
@@ -99,9 +102,11 @@ class WatcherService : Service() {
                 Thread.sleep(WatchModel.delayMs(start, SystemClock.elapsedRealtime(), hz))
             }
         } catch (e: Exception) {
+            if (e is ObdGuardException) Handler(Looper.getMainLooper()).post { android.widget.Toast.makeText(this,e.message,android.widget.Toast.LENGTH_LONG).show() }
             if (running) snapshot = snapshot.copy(values = null, status = "Stopped: ${e.message}")
         } finally {
             transport?.close(); transport = null
+            lease?.close(); lease = null
             try { log?.close("watcher stopped") } catch (_: Exception) {}
             running = false; snapshot = snapshot.copy(values = null, status = if (snapshot.status.startsWith("Stopped:")) snapshot.status else "Stopped · log saved")
             stopSelf()

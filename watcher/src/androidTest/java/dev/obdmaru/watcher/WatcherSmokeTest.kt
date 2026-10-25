@@ -20,7 +20,7 @@ class WatcherSmokeTest {
         } finally { ctx.startService(Intent(ctx,WatcherService::class.java).setAction("stop")); await { !WatcherService.running && WatcherService.lastFile?.readText()?.contains("session_end") == true } }
         val file = WatcherService.lastFile!!
         val text = ctx.contentResolver.openInputStream(Uri.parse("content://dev.obdmaru.watcher.logs/${file.name}"))!!.bufferedReader().use { it.readText() }
-        assertTrue(text.contains("watcher-0.1.0")); assertTrue(text.contains("watcher_demo_sample")); assertTrue(text.contains("session_end")); assertTrue(text.contains("U09"))
+        assertTrue(text.contains("watcher-0.1.1")); assertTrue(text.contains("watcher_demo_sample")); assertTrue(text.contains("session_end")); assertTrue(text.contains("U09"))
     }
     private fun await(test:()->Boolean) { val end=SystemClock.elapsedRealtime()+12000; while(!test() && SystemClock.elapsedRealtime()<end) Thread.sleep(50); assertTrue("Timed out",test()) }
 }

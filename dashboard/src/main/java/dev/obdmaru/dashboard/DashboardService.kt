@@ -32,12 +32,15 @@ class DashboardService : Service() {
     @Suppress("MissingPermission")
     private fun capture(address: String, demo: Boolean) {
         var log: SessionLog? = null
+        var lease: ConnectionLease? = null
         var poller: DashboardPolling? = null
         var finalStatus = "Stopped · log saved"
         var attempt = 0
         try {
-            log = SessionLog(this,address,"Dashboard",demo,"dashboard-0.1.2");lastFile=log.file
+            if (!demo) lease = ObdConnectionGuard.acquire(this)
+            log = SessionLog(this,address,"Dashboard",demo,"dashboard-0.1.3");lastFile=log.file
             val session = log
+            log.event("obd_connection_guard", "exclusive" to !demo, "demo" to demo)
             log.event("dashboard_start","tcm_target_hz" to 10,"brake_target_hz" to 10,"speed_target_hz" to 3,"clutch_display_hz" to 1,
                 "mapping" to "U19 b08 pedal /254; U03 b32 brake /140; U19 low nibble b23 gear; U19 b29:31 and b31:33 BE *2-40 provisional temperatures; standard 010D speed")
             poller = DashboardPolling(
@@ -58,10 +61,12 @@ class DashboardService : Service() {
                 event = {type,fields->session.event(type,*fields.map{it.key to it.value}.toTypedArray())},demo = demo)
             while(running)poller.step()
         }catch(e:Exception){
+            if(e is ObdGuardException)Handler(Looper.getMainLooper()).post{android.widget.Toast.makeText(this,e.message,android.widget.Toast.LENGTH_LONG).show()}
             if(running){finalStatus="Stopped: ${e.message}";try{log?.event("dashboard_fatal","error" to e.toString())}catch(_:Exception){}}
         }finally{
             try{poller?.close()}catch(_:Exception){}
             transport?.close();transport=null
+            lease?.close();lease=null
             try{log?.close("dashboard stopped")}catch(_:Exception){}
             state=DashState(status=finalStatus,demo=demo);running=false;stopSelf()
         }

@@ -76,3 +76,9 @@ A separately installable portrait raw-byte monitor for the 20 observed unknown b
 The 28-stage guide explicitly covers the parked setup, cruise master on/off while parked, holding the foot brake to select D and release/check the parking brake, departure, separate moving cruise operations, pedal windows, adjacent manual shifts, return to D, and the full final parking sequence. There are 17 minutes of observation windows, plus speech/waiting time. Observation timers wait for speech completion. Full words appear in the in-app route preview and project page.
 
 Each prompt logs expected-before/after states as intentions. Timestamped `guide_control_observation` events retain U19 selector, mode, gear, pedal and brake-switch candidates, and independent U03 brake-strength bytes. Guided mode prioritizes U03 captures. Parking-brake and cruise state are explicitly unknown; neither prompt playback nor elapsed time confirms an action.
+
+## One OBD connection at a time
+
+Update every installed OBDMaru app to **Magic 2.0.2**, **Watcher 0.1.1** and **Dash 0.1.3** (or newer). Real captures acquire a shared phone-wide OS lock before connecting. A second app stays disconnected and names the active app. Stop recording in that app before switching. The guard remains held through reconnect attempts and is released on stop or process death. Demo mode does not use the connection lock.
+
+Older installed OBDMaru versions cannot honor the lock, so updated apps block real capture until those peers are updated or uninstalled. Android's public API does not expose reliable ownership/enumeration of arbitrary third-party OBD serial connections: stop unrelated OBD apps yourself. This guard coordinates updated OBDMaru apps, not the entire Android system.

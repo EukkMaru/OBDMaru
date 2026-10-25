@@ -1,4 +1,4 @@
-# OBDMaru Watcher 0.1.0
+# OBDMaru Watcher 0.1.1
 
 A separate Android app (`dev.obdmaru.watcher`) that installs alongside Magic. It watches the 20 manufacturer-specific response blocks that returned data in the first real capture. These are still unknown raw bytes, including bytes with candidate interpretations in the analysis. There are 531 byte positions across those blocks; byte positions are not necessarily independent measurements.
 
@@ -28,3 +28,7 @@ Indices such as `U19 b29` are **zero-based data offsets with the positive-respon
 The shared Bluetooth transport, ISO-TP parser, session writer and export provider live in `shared/src/main/java`. The recorder retains its own package and behavior. The watcher APK is an experimental debug-signed build for direct installation, Android 12+.
 
 Verification on API 35 emulator: three JVM tests check unsigned byte/bit indexing, request pacing and the stable catalog; an instrumented test runs the synthetic service at 10 Hz, switches to a 64-byte block at 5 Hz, checks fresh data and measured rates, stops, and reads the finished log through the export provider. The existing 21 recorder JVM tests also pass after sharing transport sources. Real adapter throughput and real vehicle readings require the next car-side run.
+
+## Exclusive connection guard
+
+This version shares a process-lifetime OS socket-name lock with Magic 2.0.2, Watcher 0.1.1 and Dash 0.1.3. Update every installed OBDMaru peer; older builds cause a clear update-required message before Bluetooth connects. While one real session owns the lock, another app names that owner and stops its start attempt. The lock remains held during reconnects and is released after closing Bluetooth, or automatically if the process dies. Demo sessions do not connect and bypass the lock. Arbitrary third-party apps are not controllable or reliably detectable; stop them manually.

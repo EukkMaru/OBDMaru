@@ -1,4 +1,4 @@
-# OBDMaru Dash 0.1.2
+# OBDMaru Dash 0.1.3
 
 A primitive portrait F1-style telemetry display, installed separately as `dev.obdmaru.dashboard` alongside Magic and Watcher. No cruise interpretation is included.
 
@@ -48,3 +48,7 @@ To remove ELM's final wait for extra replies, a channel learns its complete sing
 Every completed read emits `dashboard_poll_timing` with logical `command`, exact `wire_command`, `header_ms`, `query_ms`, `total_ms` and scheduler `late_ms`. Raw TX records contain the actual optional count suffix. These separate address-switch overhead from query/reply waits. This is evidence for the next car-side run, not a diagnosis of the reported 0.7 Hz measurement without its log.
 
 Seventeen Dashboard JVM tests now cover the above behavior, including slow-link speed scheduling, frame-count learning, periodic unrestricted checks, multiple-ECU/incomplete-reply rejection, clone suffix rejection, and functional speed fallback after rejection/timeout. APK/test-APK compilation and lint pass. No emulator or vehicle run was performed for 0.1.2; actual throughput remains to be measured.
+
+## Exclusive connection guard
+
+This version shares a process-lifetime OS socket-name lock with Magic 2.0.2, Watcher 0.1.1 and Dash 0.1.3. Update every installed OBDMaru peer; older builds cause a clear update-required message before Bluetooth connects. While one real session owns the lock, another app names that owner and stops its start attempt. The lock remains held during reconnects and is released after closing Bluetooth, or automatically if the process dies. Demo sessions do not connect and bypass the lock. Arbitrary third-party apps are not controllable or reliably detectable; stop them manually.

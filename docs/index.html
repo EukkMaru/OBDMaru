@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>OBDMaru · Magic App 2.0.1</title>
+<title>OBDMaru · Magic App 2.0.2</title>
 <style>
 :root{color-scheme:dark light;--bg:light-dark(#f5f7fa,#0b1219);--text:light-dark(#18262f,#e4edf4);--muted:light-dark(#42596a,#adc0ce);--panel:light-dark(#fff,#131f2a);--accent:light-dark(#086454,#68ddbf);--border:light-dark(#d1dee6,#304251)}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 system-ui,sans-serif}main{max-width:920px;margin:auto;padding:48px 22px 64px}h1{font-size:clamp(2rem,6vw,3.5rem);line-height:1.1;margin:.3em 0}h2{margin-top:2em}h3{margin:0}p{max-width:74ch}.eyebrow,.muted{color:var(--muted)}.download{display:inline-block;background:var(--accent);color:var(--bg);padding:13px 22px;border-radius:10px;font-weight:650;text-decoration:none;margin:12px 12px 12px 0}a{color:var(--accent)}.modes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.mode{padding:22px;border:1px solid var(--border);border-radius:12px;background:var(--panel)}li{margin:.6em 0}summary{cursor:pointer;padding:14px 0}details{border-top:1px solid var(--border)}.route li{padding:8px 0}.route span{display:block;color:var(--muted)}code{overflow-wrap:anywhere}footer{margin-top:40px;color:var(--muted);border-top:1px solid var(--border);padding-top:20px}@media(max-width:600px){main{padding-top:28px}.modes{grid-template-columns:1fr}}
@@ -10,24 +10,25 @@
 </head>
 <body><main>
 <div class="eyebrow">Tucson TL 1.7 CRDi · Android · Bluetooth ELM327</div>
-<h1>Magic App 2.0.1</h1>
+<h1>Magic App 2.0.2</h1>
 <p>Two capture modes, faster priority polling, and a continuous spoken validation route. Preserve raw requests, replies, failures, and timing for desktop analysis.</p>
-<a class="download" href="https://github.com/EukkMaru/OBDMaru/releases/download/v2.0.1/OBDMaru-Magic-v2.0.1.apk">Download Android APK</a>
-<a href="https://github.com/EukkMaru/OBDMaru/releases/tag/v2.0.1">Release notes &amp; checksum</a>
-<p class="muted">Android 12+ · v2.0.1 · experimental, debug-signed build. Install over the previous version to preserve local sessions. Export recordings before uninstalling.</p>
+<a class="download" href="https://github.com/EukkMaru/OBDMaru/releases/download/connection-guard-v1/OBDMaru-Magic-v2.0.2.apk">Download Android APK</a>
+<a href="https://github.com/EukkMaru/OBDMaru/releases/tag/connection-guard-v1">Release notes &amp; checksum</a>
+<p class="muted">Android 12+ · v2.0.2 · experimental, debug-signed build. Install over the previous version to preserve local sessions. Export recordings before uninstalling.</p>
+<section class="mode"><h3>Update all installed OBDMaru apps</h3><p>Magic 2.0.2, Watcher 0.1.1 and Dash 0.1.3 share an exclusive OBD session guard. Only one can connect at a time; the blocked app names the active app. Stop that recording before switching. Older installed OBDMaru builds must be updated or uninstalled before a real capture can start. Demo mode is unaffected.</p><p>Stop unrelated third-party OBD apps manually; Android does not provide reliable access to their serial-connection ownership.</p></section>
 <div class="modes">
 <section class="mode"><h3>Magic · broad capture</h3><p>Start once and take an ordinary drive. Priority requests for motion, pedals and transmission data run alongside standard discovery and a finite set of Hyundai read requests. Zero-only readings are revisited less often.</p><p>No driving script or voice prompts.</p></section>
 <section class="mode"><h3>Guided · spoken sequence</h3><p>Start while parked. Spoken instructions begin automatically after connection checks. The sequence covers parked brake patterns, progressive pedal inputs, cruise at 60/70 where appropriate, and adjacent manual shifts.</p><p>The guide finishes; recording keeps running until you park and stop it.</p></section>
 </div>
 <section class="mode" style="margin-top:24px"><h2 style="margin-top:0">Dashboard · primitive F1-style display</h2>
-<p>Large gear and speed readouts, live throttle and relative brake bars, and two provisional clutch temperatures. Version 0.1.2 targets 10 Hz pedal/gear, 3 Hz speed and 1 Hz temperature display, with learned reply lengths, reserved speed polls, channel backoff and adapter resync recovery. A separate app alongside Magic and Watcher, with synthetic demo, raw logs and per-channel sample freshness.</p>
-<a class="download" href="https://github.com/EukkMaru/OBDMaru/releases/download/dashboard-v0.1.2/OBDMaru-Dash-v0.1.2.apk">Download Dashboard APK</a>
+<p>Large gear and speed readouts, live throttle and relative brake bars, and two provisional clutch temperatures. Version 0.1.3 targets 10 Hz pedal/gear, 3 Hz speed and 1 Hz temperature display, with learned reply lengths, reserved speed polls, channel backoff and adapter resync recovery. A separate app alongside Magic and Watcher, with synthetic demo, raw logs and per-channel sample freshness.</p>
+<a class="download" href="https://github.com/EukkMaru/OBDMaru/releases/download/connection-guard-v1/OBDMaru-Dash-v0.1.3.apk">Download Dashboard APK</a>
 <a href="https://github.com/EukkMaru/OBDMaru/blob/main/docs/dashboard.md">Dashboard instructions and mappings</a>
 <p><img src="dashboard-demo.png" alt="Dashboard portrait screen showing synthetic speed, gear, pedal bars and clutch temperatures" style="width:100%;max-width:300px;border-radius:12px" loading="lazy"></p>
 <p class="muted">Brake 100% is the observed raw-140 reference; larger readings remain visible numerically. Pedal and clutch interpretations are provisional. Stop other OBD apps before connecting.</p></section>
 <section class="mode" style="margin-top:24px"><h2 style="margin-top:0">New: Watcher · live unknown bytes</h2>
 <p>A separate portrait app alongside Magic. Choose one of the 20 unknown blocks and watch every byte as a 0–255 bar, decimal/hex value and ZERO/NONZERO indicator. Target 5 or 10 Hz, with the actual sample rate and freshness visible. Includes synthetic demo, bit inspection and raw log export.</p>
-<a class="download" href="https://github.com/EukkMaru/OBDMaru/releases/download/watcher-v0.1.0/OBDMaru-Watcher-v0.1.0.apk">Download Watcher APK</a>
+<a class="download" href="https://github.com/EukkMaru/OBDMaru/releases/download/connection-guard-v1/OBDMaru-Watcher-v0.1.1.apk">Download Watcher APK</a>
 <a href="https://github.com/EukkMaru/OBDMaru/blob/main/docs/watcher.md">Watcher instructions</a>
 <p><img src="watcher-demo.png" alt="Watcher portrait screen with synthetic live byte bars" style="width:100%;max-width:300px;border-radius:12px" loading="lazy"></p>
 <p class="muted">Polls one selected block at a time; adapter throughput determines actual Hz. Unknown bytes stay labeled by index. Stop other OBD apps before connecting.</p></section>
