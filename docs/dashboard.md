@@ -1,6 +1,6 @@
-# OBDMaru Dash 0.1.5
+# OBDMaru Dash 0.1.6
 
-A primitive portrait F1-style telemetry display, installed separately as `dev.obdmaru.dashboard` alongside Magic and Watcher. No cruise interpretation is included.
+A portrait circular telemetry display, installed separately as `dev.obdmaru.dashboard` alongside Magic and Watcher. No cruise interpretation is included.
 
 ## Install and use
 
@@ -53,7 +53,7 @@ Seventeen Dashboard JVM tests now cover the above behavior, including slow-link 
 
 ## Exclusive connection guard
 
-This version shares a process-lifetime OS socket-name lock with Magic 2.0.2, Watcher 0.1.1 and Dash 0.1.5. Update every installed OBDMaru peer; older builds cause a clear update-required message before Bluetooth connects. While one real session owns the lock, another app names that owner and stops its start attempt. The lock remains held during reconnects and is released after closing Bluetooth, or automatically if the process dies. Demo sessions do not connect and bypass the lock. Arbitrary third-party apps are not controllable or reliably detectable; stop them manually.
+This version shares a process-lifetime OS socket-name lock with Magic 2.0.2, Watcher 0.1.1 and Dash 0.1.6. Update every installed OBDMaru peer; older builds cause a clear update-required message before Bluetooth connects. While one real session owns the lock, another app names that owner and stops its start attempt. The lock remains held during reconnects and is released after closing Bluetooth, or automatically if the process dies. Demo sessions do not connect and bypass the lock. Arbitrary third-party apps are not controllable or reliably detectable; stop them manually.
 
 ## Version 0.1.4 brake response
 
@@ -72,3 +72,13 @@ Indicator probes begin after the first main telemetry attempts, target2 Hz when 
 Current requested data rates total about30 requests/s (U19 10, U03 10, speed3, RPM5, indicators up to2), plus ECU-address commands; actual rates depend on shared adapter throughput. Clutch display still uses existing U19 replies at1 Hz. All per-channel measured rates remain on the portrait screen.
 
 Twenty-six Dashboard/shared JVM tests cover RPM byte order/scaling, indicator masks and unknown/off distinction, 5 Hz RPM scheduling, same-header engine grouping and indicator failure backoff. APK/test-APK compilation and lint pass. No emulator or vehicle validation was performed for this update.
+
+## Version 0.1.6 circular layout
+
+Three concentric bar arcs run clockwise from roughly 7 o'clock to 5 o'clock. Outer green is throttle; middle red is the existing nonlinear relative brake percentage; inner cyan fills with canonical engine RPM. The RPM scale is 0–6000, with dotted red from 4500–5000 and solid red from 5000–6000, matching the owner's instrument-cluster description. Filled portions of the red zone become brighter red. Arc fill clips at its scale limit while numeric RPM and pedal readings retain overflow. These zones are display markings, not new ECU limits or an inferred shift recommendation.
+
+The upper interior shows plain numeric OBD speed. The lower interior has a large `D AUTO` / `M MANUAL` badge (or P/R/N/unknown) and a horizontal gear strip. The current forward gear is largest in white; neighboring gears slide past it on adjacent shifts. b24's gear is amber with an underline and a persistent `NEXT? … · b24` label, even when it lies outside the visible strip. If b23 and b24 agree, the current gear remains white and gains the amber underline. b24 is still provisional; the display does not establish clutch preselection. P/R/N and missing gear data show their literal state instead of an invented forward gear. Non-adjacent jumps and recovery from missing data snap directly to the reported gear; only the strip position is animated for 180 ms, never speed, pedal, gear values or blink timing.
+
+Clutch readouts, sampled indicator arrows, raw-byte comparisons, measured per-channel rates, stale-data handling and logging remain available. All polling targets and the brake curve are unchanged. Synthetic demo now alternates D/M and provides a separate b24 value to exercise the highlights; this is generated data, not evidence about the real field.
+
+Validation: APK and test-APK compilation, lint and the 26 existing JVM tests pass. Layout previews execute the drawing code with a lightweight host graphics adapter using synthetic states (D, M, P, seventh gear, brake overflow and unavailable data); font metrics can differ on Android. No emulator or vehicle check was performed.

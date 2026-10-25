@@ -38,11 +38,13 @@ class DashboardService : Service() {
         var attempt = 0
         try {
             if (!demo) lease = ObdConnectionGuard.acquire(this)
-            log = SessionLog(this,address,"Dashboard",demo,"dashboard-0.1.5");lastFile=log.file
+            log = SessionLog(this,address,"Dashboard",demo,"dashboard-0.1.6");lastFile=log.file
             val session = log
             log.event("obd_connection_guard", "exclusive" to !demo, "demo" to demo)
             log.event("dashboard_start","tcm_target_hz" to 10,"brake_target_hz" to 10,"speed_target_hz" to 3,"clutch_display_hz" to 1,
                 "rpm_target_hz" to 5, "indicators_target_hz" to 2, "indicators_candidate" to true,
+                "display_layout" to "circular_gear_strip", "rpm_arc_reference" to 6000,
+                "rpm_dotted_red_start" to 4500, "rpm_solid_red_start" to 5000,
                 "brake_display_curve" to "square_root", "brake_raw_reference" to 150, "brake_display_exponent" to 0.5,
                 "mapping" to "U19 b08 pedal /254; U03 b32 brake display sqrt(raw/150)*100; U19 low nibble b23 gear; U19 b29:31 and b31:33 BE *2-40 provisional temperatures; standard 010D speed; standard 010C RPM /4; indicator candidate 770/22BC08 b04 masks 02 left,04 right")
             poller = DashboardPolling(
@@ -99,7 +101,9 @@ class DashboardService : Service() {
         return when(key) {
             "tcm"->ByteArray(34).apply {
                 this[7]=(32+gas*213).toInt().toByte();this[8]=(gas*254).toInt().toByte()
-                this[21]=8;this[22]=7;this[23]=(1+(now/4000%7).toInt()).toByte();this[24]=this[23]
+                val gear=1+(now/4000%7).toInt()
+                this[21]=8;this[22]=if(now/12000%2==0L)7 else 10;this[23]=gear.toByte()
+                this[24]=(if(gear==7)6 else gear+1).toByte()
                 this[26]=if(brake>.1)1 else 0;this[30]=(70+sin(phase*.07)*8).toInt().toByte();this[32]=(75+sin(phase*.09)*9).toInt().toByte()
             }
             "brake"->ByteArray(39).apply {this[32]=(brake*168).toInt().toByte();this[33]=(brake*162).toInt().toByte()}
