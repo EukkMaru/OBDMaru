@@ -11,6 +11,10 @@ class DashboardPollingTest {
         var opens=0;var closes=0;var recoveries=0
         var fault:(String)->String?={null}
         var recover=true
+        var headerCost=5L
+        var queryCost=5L
+        var finalWait=0L
+        var onEvent:(String,Map<String,Any?>)->Unit={_,_->}
         val commands=mutableListOf<String>()
         val counts=mutableMapOf<String,Int>()
         val events=mutableListOf<String>()
@@ -18,12 +22,15 @@ class DashboardPollingTest {
             opens++
             object:DashboardLink {
                 override fun query(command:String,phase:String,timeoutMs:Long):String {
-                    time+=5;commands+=command
+                    time+=if(command.startsWith("AT"))headerCost else queryCost
+                    commands+=command
                     fault(command)?.let{return it}
                     if(command.startsWith("AT"))return if(command=="ATZ")"ELM327>" else "OK>"
-                    counts[command]=(counts[command]?:0)+1
-                    val data=when(command){"2201A4"->ByteArray(34).apply{this[8]=(counts[command]!!%255).toByte();this[30]=70;this[32]=75};"22C101"->ByteArray(39);else->byteArrayOf(50)}
-                    val prefix=("%02X".format(command.take(2).toInt(16)+64)+command.drop(2)).chunked(2).map{it.toInt(16)}
+                    val logical=command.take(if(command.startsWith("01"))4 else 6)
+                    if(logical==command)time+=finalWait
+                    counts[logical]=(counts[logical]?:0)+1
+                    val data=when(logical){"2201A4"->ByteArray(34).apply{this[8]=(counts[logical]!!%255).toByte();this[30]=70;this[32]=75};"22C101"->ByteArray(39);else->byteArrayOf(50)}
+                    val prefix=("%02X".format(logical.take(2).toInt(16)+64)+logical.drop(2)).chunked(2).map{it.toInt(16)}
                     val p=prefix+data.map{it.toInt() and 255}
                     val frames=if(p.size<=7)listOf(listOf(p.size)+p)else listOf(listOf(0x10,p.size)+p.take(6))+p.drop(6).chunked(7).mapIndexed{i,b->listOf(0x20+((i+1)%16))+b}
                     return frames.joinToString("\r"){"7E8 "+it.joinToString(" "){v->"%02X".format(v)}}+"\r>"
@@ -31,7 +38,7 @@ class DashboardPollingTest {
                 override fun recover():Boolean {recoveries++;return recover}
                 override fun close(){closes++}
             }
-        },now={time},sleep={time+=it},publish={state=it},event={type,_->events+=type})
+        },now={time},sleep={time+=it},publish={state=it},event={type,fields->events+=type;onEvent(type,fields)})
         fun run(ms:Long){val end=time+ms;var guard=0;while(time<end){poller.step();check(++guard<10000)}}
     }
     @Test fun targetsTenTenThreeAndOneWithoutTemperatureExtraRequests(){
@@ -85,5 +92,44 @@ class DashboardPollingTest {
         r.fault={if(it=="ATE0"&&!rejected){rejected=true;"?>"}else null};r.run(5000)
         assertEquals(2,r.opens);assertEquals(1,r.closes);assertEquals(0,r.recoveries)
         assertTrue(r.state.samples.containsKey("speed"))
+    }
+
+    @Test fun learnsFullFrameHintsAndEliminatesFinalWaitWithoutTruncatingReads(){
+        val r=Rig();r.finalWait=200;r.run(15000)
+        assertTrue(r.commands.contains("2201A46"));assertTrue(r.commands.contains("22C1017"));assertTrue(r.commands.contains("010D1"))
+        assertFalse(r.events.contains("dashboard_channel_failure"))
+        assertTrue(r.state.samples.getValue("tcm").hz>8)
+        assertTrue(r.state.samples.getValue("speed").hz>2.5)
+    }
+    @Test fun rejectedCountSyntaxFallsBackToPlainRequestsOnSameSocket(){
+        val r=Rig();r.fault={if(!it.startsWith("AT") && it.length%2==1)"?>"else null};r.run(6000)
+        assertEquals(1,r.opens);assertEquals(0,r.recoveries)
+        assertTrue(r.events.contains("dashboard_reply_hint_disabled"))
+        assertTrue(r.state.samples.keys.containsAll(listOf("tcm","brake","speed")))
+        assertTrue(r.commands.takeLast(10).filterNot{it.startsWith("AT")}.all{it.length%2==0})
+    }
+    @Test fun slowLinkReservesSpeedAndReportsHeaderAndQueryCost(){
+        val r=Rig();r.headerCost=45;r.queryCost=90
+        val timings=mutableListOf<Map<String,Any?>>()
+        r.onEvent={type,fields->if(type=="dashboard_poll_timing")timings+=fields}
+        r.run(12000)
+        assertTrue(r.state.samples.getValue("speed").hz>2)
+        assertTrue(r.counts.getValue("2201A4")>5);assertTrue(r.counts.getValue("22C101")>5)
+        assertTrue(timings.any{it["header_ms"]==45L && it["query_ms"]==90L && it["total_ms"]==135L})
+    }
+    @Test fun unsupportedPhysicalSpeedFallsBackToFunctionalAddress(){
+        val r=Rig();var physical=true
+        r.fault={if(it=="ATSH7DF"){physical=false;null}else if(physical&&it=="010D")"NO DATA\r>"else null}
+        r.run(4000)
+        assertEquals(1,r.opens);assertTrue(r.commands.contains("ATSH7DF"))
+        assertTrue(r.events.contains("dashboard_speed_fallback"));assertTrue(r.state.samples.containsKey("speed"))
+    }
+
+    @Test fun timedOutPhysicalSpeedAlsoFallsBackAfterResync(){
+        val r=Rig();var failed=false
+        r.fault={if(it=="010D"&&!failed){failed=true;throw IOException("Physical ECU timed out")}else null}
+        r.run(5000)
+        assertEquals(1,r.opens);assertEquals(1,r.recoveries)
+        assertTrue(r.commands.contains("ATSH7DF"));assertTrue(r.state.samples.containsKey("speed"))
     }
 }

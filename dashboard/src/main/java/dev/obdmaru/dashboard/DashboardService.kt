@@ -36,7 +36,7 @@ class DashboardService : Service() {
         var finalStatus = "Stopped · log saved"
         var attempt = 0
         try {
-            log = SessionLog(this,address,"Dashboard",demo,"dashboard-0.1.1");lastFile=log.file
+            log = SessionLog(this,address,"Dashboard",demo,"dashboard-0.1.2");lastFile=log.file
             val session = log
             log.event("dashboard_start","tcm_target_hz" to 10,"brake_target_hz" to 10,"speed_target_hz" to 3,"clutch_display_hz" to 1,
                 "mapping" to "U19 b08 pedal /254; U03 b32 brake /140; U19 low nibble b23 gear; U19 b29:31 and b31:33 BE *2-40 provisional temperatures; standard 010D speed")
@@ -70,10 +70,11 @@ class DashboardService : Service() {
         override fun query(command:String,phase:String,timeoutMs:Long):String {
             if(command.startsWith("AT"))return if(command=="ATZ")"ELM327 DEMO\r>"else "OK\r>"
             Thread.sleep(35)
-            val key=when(command){"2201A4"->"tcm";"22C101"->"brake";else->"speed"}
+            val logical=command.take(if(command.startsWith("01"))4 else 6)
+            val key=when(logical){"2201A4"->"tcm";"22C101"->"brake";else->"speed"}
             val bytes=demoBytes(key,SystemClock.elapsedRealtime())
             log.event("dashboard_demo_sample","channel" to key,"bytes" to org.json.JSONArray(bytes.map{it.toInt() and 255}))
-            val prefix=("%02X".format(command.take(2).toInt(16)+64)+command.drop(2)).chunked(2).map{it.toInt(16)}
+            val prefix=("%02X".format(logical.take(2).toInt(16)+64)+logical.drop(2)).chunked(2).map{it.toInt(16)}
             val data=prefix+bytes.map{it.toInt() and 255}
             val id=when(key){"tcm"->"7E9";"brake"->"7D9";else->"7E8"}
             val frames=if(data.size<=7)listOf(listOf(data.size)+data)else {

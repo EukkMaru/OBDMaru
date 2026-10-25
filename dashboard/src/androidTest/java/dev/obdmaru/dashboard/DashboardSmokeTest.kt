@@ -21,7 +21,7 @@ class DashboardSmokeTest {
   assertTrue(DashboardService.state.samples.isEmpty())
   val file=DashboardService.lastFile!!
   val log=ctx.contentResolver.openInputStream(Uri.parse("content://dev.obdmaru.dashboard.logs/${file.name}"))!!.bufferedReader().use{it.readText()}
-  assertTrue(log.contains("dashboard_demo_sample"));assertTrue(log.contains("dashboard-0.1.1"))
+  assertTrue(log.contains("dashboard_demo_sample"));assertTrue(log.contains("dashboard-0.1.2"))
  }
  private fun await(test:()->Boolean){val end=SystemClock.elapsedRealtime()+12000;while(!test()&&SystemClock.elapsedRealtime()<end)Thread.sleep(50);assertTrue("Timed out",test())}
 }

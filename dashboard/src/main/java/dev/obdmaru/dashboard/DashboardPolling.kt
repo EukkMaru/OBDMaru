@@ -19,8 +19,8 @@ class DashboardPolling(
     private val event: (String, Map<String,Any?>) -> Unit = { _,_ -> },
     private val demo: Boolean = false
 ) : Closeable {
-    private data class Task(val key: String,val header: String,val command: String,val interval: Long,val size: Int,var due: Long=0,var failures: Int=0)
-    private val tasks = listOf(Task("tcm","7E1","2201A4",100,34), Task("brake","7D1","22C101",100,34), Task("speed","7DF","010D",333,1))
+    private data class Task(val key: String,var header: String,val command: String,val interval: Long,val size: Int,var due: Long=0,var failures: Int=0,val hint: ReplyHint=ReplyHint())
+    private val tasks = listOf(Task("tcm","7E1","2201A4",100,34), Task("brake","7D1","22C101",100,34), Task("speed","7E0","010D",333,1))
     private val samples = mutableMapOf<String,Sample>()
     private val times = mutableMapOf<String,ArrayDeque<Long>>()
     private var link: DashboardLink? = null
@@ -30,6 +30,7 @@ class DashboardPolling(
     private var message = "Live"
     private var messageUntil = 0L
     private var stage = "connect"
+    private var lastChannel = ""
     private fun status(text: String) { message=text;messageUntil=now()+5000 }
     private fun emit() = publish(DashState(samples.toMap(),if(now()<messageUntil)message else "Live",demo))
     private fun sample(key: String,bytes: ByteArray,at: Long) {
@@ -50,42 +51,67 @@ class DashboardPolling(
                     val reply=link!!.query(cmd,"dashboard_setup",6000)
                     if(cmd!="ATZ" && cmd!="ATPC" && !reply.contains("OK"))throw IOException("Setup rejected: $cmd (${Protocol.outcome(reply)})")
                 }
-                firstConnection=false;header="";times.clear();status("Connected");event("dashboard_connected",emptyMap())
+                firstConnection=false;header="";times.clear();tasks.forEach{it.hint.reset()};status("Connected");event("dashboard_connected",emptyMap())
             }catch(e: IOException){reconnect(e);return}
         }
-        val start=now();val task=tasks.maxBy{start-it.due}
-        if(task.due>start){sleep(minOf(task.due-start,25));return}
+        val start=now()
+        val ready=tasks.filter{it.due<=start}
+        if(ready.isEmpty()){sleep(minOf(tasks.minOf{it.due}-start,25));return}
+        // Reserve due speed reads under load, but never starve both pedal streams with consecutive speed reads.
+        val task=ready.firstOrNull{it.key=="speed" && lastChannel!="speed"} ?: ready.maxBy{start-it.due}
+        var headerMs=0L
+        var wire=task.command
         try {
             if(header!=task.header) {
                 stage="${task.key} header"
                 val reply=link!!.query("ATSH${task.header}","dashboard_setup",2500)
                 if(!reply.contains("OK"))throw IOException("Header rejected: ${task.header}")
-                header=task.header
+                header=task.header;headerMs=now()-start
             }
             stage="${task.key} ${task.command}"
-            val raw=link!!.query(task.command,"dashboard_${task.key}",2500)
+            wire=task.hint.command(task.command)
+            val queryStart=now()
+            val raw=link!!.query(wire,"dashboard_${task.key}",2500)
+            lastChannel=task.key
+            event("dashboard_poll_timing",mapOf("channel" to task.key,"command" to task.command,"wire_command" to wire,
+                "header_ms" to headerMs,"query_ms" to now()-queryStart,"total_ms" to now()-start,
+                "late_ms" to (start-task.due).coerceAtLeast(0)))
             val bytes=Protocol.data(raw,task.command)
             if(bytes==null || bytes.size<task.size) {
-                fail(task,"${Protocol.outcome(raw)} / short or unmatched payload")
+                val hinted=wire!=task.command
+                fallbackSpeed(task,Protocol.outcome(raw))
+                if(hinted){task.hint.reject();event("dashboard_reply_hint_disabled",mapOf("channel" to task.key,"reason" to Protocol.outcome(raw)))}
+                fail(task,"${Protocol.outcome(raw)} / short or unmatched payload",hinted)
             }else{
                 val at=now();sample(task.key,bytes,at);task.failures=0
+                task.hint.observe(raw,task.command)
                 // Temperatures arrive with throttle/gear. Publish them at 1 Hz without another ECU read.
                 if(task.key=="tcm" && (samples["clutch"]==null || at-samples.getValue("clutch").at>=1000))sample("clutch",bytes,at)
                 task.due=maxOf(start+task.interval,at)
             }
             emit()
         }catch(e: IOException){
-            fail(task,e.message?:"I/O error");emit()
+            val hinted=wire!=task.command
+            fallbackSpeed(task,e.toString())
+            if(hinted){task.hint.reject();event("dashboard_reply_hint_disabled",mapOf("channel" to task.key,"reason" to e.toString()))}
+            lastChannel=task.key
+            fail(task,e.message?:"I/O error",hinted);emit()
             event("dashboard_recovery_attempt",mapOf("stage" to stage,"error" to e.toString()))
             // A timed-out ECU is not necessarily a disconnected Bluetooth socket.
             if(try{link?.recover()==true}catch(_:IOException){false}){header="";status("Adapter resynced · ${task.key} backed off");event("dashboard_resynced",mapOf("channel" to task.key));emit()}
             else reconnect(e)
         }
     }
-    private fun fail(task: Task,reason: String) {
+    private fun fallbackSpeed(task:Task,reason:String) {
+        if(task.key=="speed" && task.header=="7E0") {
+            task.header="7DF";task.hint.reset()
+            event("dashboard_speed_fallback",mapOf("from" to "7E0","to" to "7DF","reason" to reason))
+        }
+    }
+    private fun fail(task: Task,reason: String,fastRetry:Boolean=false) {
         task.failures++;samples.remove(task.key);times.remove(task.key)
         if(task.key=="tcm"){samples.remove("clutch");times.remove("clutch")}
-        task.due=now()+minOf(5000,1000L*task.failures)
+        task.due=now()+if(fastRetry)100 else minOf(5000,1000L*task.failures)
         status("${task.key}: $reason");event("dashboard_channel_failure",mapOf("channel" to task.key,"stage" to stage,"reason" to reason,"retry_ms" to task.due-now()))
     }
     private fun reconnect(e: IOException) {
