@@ -203,7 +203,7 @@ def summarize(source):
                 total_rx_bytes=rx_bytes, request_outcomes=dict(outcomes), request_errors=errors, phases=report,
                 adapter_commands_ms={k: stats(v) for k, v in sorted(local.items())}, log_sync_ms=stats(sync),
                 scheduler={k: dict(polls=len(v), query_ms=stats([p["query_ms"] for p in v]),
-                                   header_ms=stats([p["header_ms"] for p in v]), late_ms=stats([p["late_ms"] for p in v]))
+                                   header_ms=stats([p["header_ms"] for p in v]), late_ms=stats([p["late_ms"] for p in v if "late_ms" in p]))
                            for k, v in scheduler.items()},
                 limits=["Phone RFCOMM delivery timestamps; not CAN arrival, RF packets or UART bit timing.",
                         "A stream read may combine many CAN lines or fragment one line; zero line gaps do not mean zero CAN spacing.",

@@ -71,6 +71,17 @@ class BottleneckTests(unittest.TestCase):
         self.assertEqual(r["phases"][0]["aborted"],"timeout")
         self.assertEqual(r["phases"][1]["skipped"],"setting rejected")
 
+    def test_engine_batch_without_lateness_does_not_invent_zero(self):
+        r=bottleneck.summarize([
+            dict(type="benchmark_phase_start",id="scheduler",label="Scheduler"),
+            dict(type="dashboard_poll_timing",channel="engine_batch",query_ms=40,header_ms=20),
+            dict(type="dashboard_poll_timing",channel="tcm",query_ms=80,header_ms=15,late_ms=12),
+        ])
+        self.assertEqual(r["scheduler"]["engine_batch"]["query_ms"]["median"],40)
+        self.assertEqual(r["scheduler"]["engine_batch"]["late_ms"]["n"],0)
+        self.assertIsNone(r["scheduler"]["engine_batch"]["late_ms"]["median"])
+        self.assertEqual(r["scheduler"]["tcm"]["late_ms"]["median"],12)
+
     def test_sync_cost_completion_and_private_identifiers(self):
         r=self.report(self.fixture()+[
             dict(type="log_sync",sync_start_ns=1,sync_end_ns=3_000_001),
