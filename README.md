@@ -6,6 +6,8 @@ Dash **0.1.13** adds a [parked adapter bottleneck test](docs/bottleneck.md): aut
 
 Android diagnostic capture for a **2018 Hyundai Tucson TL, pre-facelift, 1.7 CRDi with dry 7DCT**, a generic **ELM327 Bluetooth Classic** adapter, and a **Galaxy S23+ on Android 16 / One UI 8.5**. No root required.
 
+For mapping and wiring research, prioritize **2017 pre-facelift TL** references with matching hardware over an unspecified “2018” reference. The vehicle remains recorded as 2018; borrowed definitions still require validation. See [vehicle reference preference](docs/diagnostics.md#vehicle-reference-preference).
+
 [Download and instructions](https://EukkMaru.github.io/OBDMaru/) · [Releases](https://github.com/EukkMaru/OBDMaru/releases)
 
 Capture evidence in the car, then investigate available telemetry and develop a dashboard against replay at a desk. Clutch temperatures, pedal input, brake state, and cruise data are investigation targets; captured replies alone do not validate a decoding. The phone app is primary; Android Auto remains optional future work.

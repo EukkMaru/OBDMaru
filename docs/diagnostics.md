@@ -1,5 +1,13 @@
 # Diagnostic coverage and provenance
 
+## Vehicle reference preference
+
+The owner's car is a **2018 Tucson TL, pre-facelift, 1.7 CRDi with dry 7DCT**. For diagnostic mappings and wiring research, prioritize **2017 pre-facelift TL references**, preferably matching the engine, transmission and market. Matching 2016 pre-facelift references are useful alternatives. Treat references labeled only “2018” as ambiguous until their facelift status and hardware are established; do not prioritize them solely because the year matches. Later-generation mappings are separate candidates.
+
+This is the owner's research preference, not proof that every 2017 ECU layout is identical. Actual vehicle replies and controlled observations take precedence over a borrowed mapping. Keep the car's actual year as 2018 in metadata and logs.
+
+## Sources
+
 Adapter commands follow the [ELM327 data sheet](https://www.elmelectronics.com/wp-content/uploads/2017/01/ELM327DS.pdf). The clone's reported firmware string is logged, not trusted as a capability guarantee. Required formatting settings are checked; unsupported optional identity commands remain evidence.
 
 Enhanced requests are extracted from [OBDb/Hyundai-Tucson signalsets/v3/default.json](https://github.com/OBDb/Hyundai-Tucson/blob/b1306dc2c54e32ba4344fcbb5fd098ef66db50e7/signalsets/v3/default.json), revision `b1306dc2c54e32ba4344fcbb5fd098ef66db50e7`, retrieved 2026-10-21. That database is community-maintained and covers multiple model years, engines, and transmissions. Definitions are **candidates**, not validation on this particular 2018 1.7D.
