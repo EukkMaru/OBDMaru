@@ -14,7 +14,8 @@ object ObdConnectionGuard {
     private val apps=listOf(
         App("dev.obdmaru.recorder","Magic",4,"2.0.2"),
         App("dev.obdmaru.watcher","Watcher",2,"0.1.1"),
-        App("dev.obdmaru.dashboard","Dash",4,"0.1.3"))
+        App("dev.obdmaru.dashboard","Dash",4,"0.1.3"),
+        App("dev.obdmaru.scanner","Scanner",1,"0.1.0"))
     fun acquire(context:Context):ConnectionLease {
         val mine=apps.first{it.pkg==context.packageName}
         // Old installed OBDMaru builds do not participate. Fail closed until all installed peers are updated.

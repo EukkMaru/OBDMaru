@@ -14,7 +14,7 @@ class ConnectionLease private constructor(private val marker:Closeable,private v
     @Synchronized override fun close(){if(closed)return;closed=true;try{marker.close()}finally{lock.close()}}
     companion object {
         const val NAME="dev.obdmaru.obd.connection.v1"
-        val owners=listOf("Magic","Watcher","Dash")
+        val owners=listOf("Magic","Watcher","Dash","Scanner")
         private fun marker(owner:String)="$NAME.owner.$owner"
         fun acquire(owner:String,bind:(String)->Closeable):ConnectionLease {
             require(owner in owners)

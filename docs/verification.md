@@ -1,5 +1,11 @@
 # Verification — 2026-10-21
 
+## Scanner 0.1.0 — 2026-10-27
+
+Separate read-only Android app for stored/pending/permanent emissions DTCs, readiness and selected frame-0 freeze values. Includes synthetic demo, 9,341 offline community generic descriptions with pinned MIT provenance/license, persistent readable reports and raw JSONL export. Manufacturer-controlled definitions stay unresolved. No code-clearing command is included.
+
+Validation: 30 Scanner/shared JVM tests pass, covering per-ECU ISO-TP assembly, incomplete/out-of-order/cross-query frame rejection, explicit zero-code replies versus unavailable data, count consistency, negative/pending replies, duplicate/conflicting responses, code bit layouts, diesel/spark readiness, frame-0 value decoding, manufacturer-definition exclusion, finite read-only scan sequencing, cancellation/timeout/recovery and partial reports. All 94 existing-module JVM tests and 13 Python tests pass. Scanner APK compiles; lint reports zero errors and five English-text internationalization warnings. Shared guard tests cover four apps and simultaneous starts. No emulator was started; no phone, Bluetooth adapter or vehicle check was run. Sharing, visual rendering, multi-ECU flow control and actual module/PID/DTC coverage remain unverified on hardware.
+
 ## Dash 0.1.13 — 2026-10-26
 
 Adds a parked benchmark with 73 bounded experiment slots and a 45-second normal scheduler window, optional detailed shared-transport/fsync timing and a desktop JSON/text report. No driving sequence, parameter writes, UART baud changes, forced flow-control changes, actuator commands or unbounded monitor are added.

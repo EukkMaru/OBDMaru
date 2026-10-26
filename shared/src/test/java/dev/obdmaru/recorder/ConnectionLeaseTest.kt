@@ -15,7 +15,7 @@ class ConnectionLeaseTest {
    return Closeable{synchronized(this){held.remove(name)}}
   }
  }
- @Test fun allThreeAppsExcludeEachOtherAndNameTheActiveOwner(){
+ @Test fun allAppsExcludeEachOtherAndNameTheActiveOwner(){
   for(owner in ConnectionLease.owners){
    val k=Kernel();val lease=ConnectionLease.acquire(owner,k::bind)
    for(other in ConnectionLease.owners.filter{it!=owner}){
@@ -28,13 +28,13 @@ class ConnectionLeaseTest {
  }
  @Test fun simultaneousStartsHaveOnlyOneWinner(){
   val k=Kernel();val start=CountDownLatch(1);val finish=CountDownLatch(1)
-  val pool=Executors.newFixedThreadPool(3)
+  val pool=Executors.newFixedThreadPool(ConnectionLease.owners.size)
   try{
    val jobs=ConnectionLease.owners.map{owner->pool.submit<Boolean>{start.await();try{ConnectionLease.acquire(owner,k::bind).use{finish.await(3,TimeUnit.SECONDS)};true}catch(_:ObdGuardException){false}}}
    start.countDown()
    val end=System.nanoTime()+TimeUnit.SECONDS.toNanos(2)
-   while(jobs.count{it.isDone}<2 && System.nanoTime()<end)Thread.yield()
-   assertEquals(2,jobs.count{it.isDone})
+   while(jobs.count{it.isDone}<ConnectionLease.owners.size-1 && System.nanoTime()<end)Thread.yield()
+   assertEquals(ConnectionLease.owners.size-1,jobs.count{it.isDone})
    finish.countDown();assertEquals(1,jobs.count{it.get(3,TimeUnit.SECONDS)})
    assertTrue(k.held.isEmpty())
   }finally{finish.countDown();pool.shutdownNow()}

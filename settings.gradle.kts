@@ -6,3 +6,5 @@ include(":app")
 include(":watcher")
 
 include(":dashboard")
+
+include(":scanner")

@@ -1,5 +1,7 @@
 # OBDMaru — Magic App 2.0
 
+**New: [OBDMaru Scanner 0.1.0](docs/scanner.md)** — a separate read-only fault-code app for the existing Bluetooth dongle. Stored/pending/permanent emissions codes, readiness, available freeze-frame data, 9,341 offline generic community descriptions and shareable reports/raw logs. [Download Scanner](https://github.com/EukkMaru/OBDMaru/releases/download/scanner-v0.1.0/OBDMaru-Scanner-v0.1.0.apk). Exact Hyundai TL manufacturer-code coverage remains unverified.
+
 Dash **0.1.13** adds a [parked adapter bottleneck test](docs/bottleneck.md): automatic read-only experiments, raw replies/failures, detailed phone-side transport/logging timestamps and a standard-library Python report. [Download Dash](https://github.com/EukkMaru/OBDMaru/releases/download/dashboard-v0.1.13/OBDMaru-Dash-v0.1.13.apk).
 
 Android diagnostic capture for a **2018 Hyundai Tucson TL, pre-facelift, 1.7 CRDi with dry 7DCT**, a generic **ELM327 Bluetooth Classic** adapter, and a **Galaxy S23+ on Android 16 / One UI 8.5**. No root required.
@@ -72,6 +74,10 @@ A separately installable portrait raw-byte monitor for the 20 observed unknown b
 ## Dashboard app
 
 [OBDMaru Dash](docs/dashboard.md) is a separate portrait display with throttle/brake arcs around an RPM circle that fills upward, numeric OBD speed, a sliding gear strip, prominent D/M mode, subtle provisional b24 highlighting, sampled indicators, standard coolant and provisional clutch temperatures. Includes synthetic demo, sample freshness and raw logs. Build with `./gradlew :dashboard:assembleDebug`.
+
+## Scanner app
+
+[OBDMaru Scanner](docs/scanner.md) installs alongside the telemetry apps and takes the same exclusive connection lock. A finite read-only standard emissions scan saves per-ECU results and unavailable/partial replies, with an offline generic-code lookup and synthetic demo. Build with `./gradlew :scanner:assembleDebug :scanner:testDebugUnitTest :scanner:lintDebug`. This is not full Hyundai GDS module coverage; manufacturer-controlled definitions remain unresolved unless independently established.
 
 ## Magic 2.0.1: continuous control instructions
 
