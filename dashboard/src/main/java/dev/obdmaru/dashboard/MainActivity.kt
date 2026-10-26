@@ -17,8 +17,9 @@ class MainActivity:Activity() {
  private lateinit var setup:LinearLayout
  private lateinit var devices:Spinner
  private lateinit var benchmarkStatus:TextView
+ private lateinit var blinkerNext:Button
  private var addresses=listOf<String>()
- private val update=object:Runnable {override fun run(){dash.invalidate();benchmarkStatus.text=DashboardService.benchmarkProgress;benchmarkStatus.visibility=if(benchmarkStatus.text.isEmpty())View.GONE else View.VISIBLE;handler.postDelayed(this,100)}}
+ private val update=object:Runnable {override fun run(){dash.invalidate();dash.visibility=if(DashboardService.blinkerMode)View.GONE else View.VISIBLE;blinkerNext.visibility=if(DashboardService.blinkerReady)View.VISIBLE else View.GONE;blinkerNext.text=if(DashboardService.blinkerStage<6)"Next: "+BlinkerTest.STAGES[DashboardService.blinkerStage+1] else "Finish test";benchmarkStatus.text=DashboardService.benchmarkProgress;benchmarkStatus.visibility=if(benchmarkStatus.text.isEmpty())View.GONE else View.VISIBLE;handler.postDelayed(this,100)}}
  private fun dp(x:Int)=(resources.displayMetrics.density*x).toInt()
  override fun onCreate(savedInstanceState:Bundle?) {
   super.onCreate(savedInstanceState);window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -38,8 +39,14 @@ class MainActivity:Activity() {
    AlertDialog.Builder(this@MainActivity).setTitle("Parked bottleneck test")
     .setMessage("Park in P, engage the parking brake and keep the engine idling in a ventilated place. Stop other OBD apps. Leave the car controls alone during the test.\n\nThe automatic test usually takes several minutes (12-minute limit). Progress appears above the dash. It saves raw replies and failures; use Share log when it finishes. You can stop early and keep the partial log.")
     .setPositiveButton("Start parked test"){_,_->start(false,true)}.setNegativeButton("Cancel",null).show()
+  }})
+  setup.addView(Button(this).apply{text="Parked blinker test";isAllCaps=false;setOnClickListener{
+   AlertDialog.Builder(this@MainActivity).setTitle("Parked blinker test")
+    .setMessage("Park in P, apply the parking brake and turn the ignition ON. Engine can stay OFF. Stop other OBD apps. Start with indicators and hazards OFF.\n\nThis listens only for candidate CAN ID 0x541; it does not poll the usual dash. Follow the on-screen stages, holding each for 5–10 seconds. Tap Next just before changing the control. The test ends after 2 minutes or Finish. Return indicators and hazards to OFF, then Share log. If stopped early, partial data remains available.")
+    .setPositiveButton("Start blinker test"){_,_->start(false,blinker=true)}.setNegativeButton("Cancel",null).show()
   }});root.addView(setup)
   benchmarkStatus=TextView(this).apply{textSize=15f;setTextColor(Color.WHITE);setPadding(dp(12),dp(8),dp(12),dp(8));visibility=View.GONE};root.addView(benchmarkStatus)
+  blinkerNext=Button(this).apply{isAllCaps=false;visibility=View.GONE;setOnClickListener{if(DashboardService.blinkerReady)DashboardService.blinkerStage=(DashboardService.blinkerStage+1).coerceAtMost(7)}};root.addView(blinkerNext)
   if(DashboardService.running)setup.visibility=View.GONE
   dash=DashView(this);root.addView(dash,LinearLayout.LayoutParams(-1,0,1f))
   val footer=LinearLayout(this);button("Stop",footer){if(DashboardService.running)startService(Intent(this,DashboardService::class.java).setAction("stop"))};button("Share log",footer){share()};root.addView(footer)
@@ -53,11 +60,11 @@ class MainActivity:Activity() {
   addresses=paired.map{it.address};devices.adapter=ArrayAdapter(this,android.R.layout.simple_spinner_dropdown_item,paired.map{"${it.name?:"Device"} · ${it.address}"}.ifEmpty{listOf("Pair adapter in Bluetooth settings")})
  }
  override fun onRequestPermissionsResult(code:Int,permissions:Array<out String>,results:IntArray){super.onRequestPermissionsResult(code,permissions,results);if(code==1 && checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)==PackageManager.PERMISSION_GRANTED)refresh()}
- private fun start(demo:Boolean,benchmark:Boolean=false) {
+ private fun start(demo:Boolean,benchmark:Boolean=false,blinker:Boolean=false) {
   if(DashboardService.running){Toast.makeText(this,"Stop the current session first",Toast.LENGTH_SHORT).show();return}
   if(checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)!=PackageManager.PERMISSION_GRANTED){refresh();return}
   if(!demo && addresses.isEmpty()){startActivity(Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS));return}
-  startForegroundService(Intent(this,DashboardService::class.java).putExtra("demo",demo).putExtra("benchmark",benchmark).putExtra("address",if(demo)"demo"else addresses[devices.selectedItemPosition]));setup.visibility=View.GONE
+  startForegroundService(Intent(this,DashboardService::class.java).putExtra("demo",demo).putExtra("benchmark",benchmark).putExtra("blinker",blinker).putExtra("address",if(demo)"demo"else addresses[devices.selectedItemPosition]));setup.visibility=View.GONE
  }
  private fun share(){
   if(DashboardService.running){Toast.makeText(this,"Stop before sharing the log",Toast.LENGTH_SHORT).show();return}

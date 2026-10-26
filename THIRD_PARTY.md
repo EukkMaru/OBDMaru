@@ -13,3 +13,11 @@ Changes: extracted a finite selection of header/command pairs, separated priorit
 Copyright (c) 2024 Wal33D (Waleed Judah). MIT License. The complete copyright/permission/warranty notice is bundled in `scanner/src/main/assets/DTC-LICENSE.txt` and accessible through **Data & license** in Scanner.
 
 Changes: filtered to generic code ranges, omitted reserved descriptions and range headings, deduplicated and sorted as a two-column UTF-8 TSV. 9,341 descriptions are included. `tools/import_scanner_codes.py` reproduces the subset from the pinned source. No other-brand manufacturer definitions or repair recommendations are bundled. These are community descriptions, not a certified Hyundai TL-specific catalog. The source authors do not endorse OBDMaru.
+
+## Parked blinker candidate
+
+The five `CGW1` bit positions used by Dash's parked blinker test come from **commaai/opendbc**, revision [`1bce882c6330f8cc591f368f415ae5fa241ae225`](https://github.com/commaai/opendbc/blob/1bce882c6330f8cc591f368f415ae5fa241ae225/opendbc/dbc/hyundai_2015_ccan.dbc#L903), `hyundai_2015_ccan.dbc`.
+
+Copyright (c) 2020, Comma.ai, Inc. MIT License. The complete copyright/permission/warranty notice is bundled in `dashboard/src/main/assets/opendbc-LICENSE.txt`.
+
+Changes: extracted raw left/right lamp, left/right stalk and hazard positions into a small candidate decoder. Raw enums are retained; no exact pre-facelift Tucson applicability or source-author endorsement is claimed.

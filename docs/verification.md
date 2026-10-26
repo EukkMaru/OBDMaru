@@ -1,5 +1,11 @@
 # Verification — 2026-10-21
 
+## Dash 0.1.14 — 2026-10-27
+
+Adds a separate two-minute parked raw-CAN blinker discovery test using the current Bluetooth adapter: checked silent/filter setup, strict 0x541/DLC8 streaming, manual off/left/off/right/off/hazards/off stage markers, raw candidate fields, completed/partial log sharing and bounded stop/reset cleanup. Ordinary Dash indicators remain unvalidated and do not switch sources.
+
+Validation: 142 JVM tests across all four apps pass (72 Dashboard/shared, including 18 new monitor/candidate tests); all 13 Python tests pass. New checks cover fragmented serial input, unsigned field offsets and independent bits, raw enum retention, wrong CAN IDs/DLC/truncation, adapter errors, prompt termination, line limits, no-frame timeout, user finish, cancellation/read failure, failed stop cleanup, preserved primary errors, required-setting rejection, uncertain command boundaries, setup/reset order and stage/raw-frame logging. Dash APK and instrumentation APK compile. Lint reports zero errors and eight existing dependency/orientation/API/English-text warnings. No emulator was started; no phone, dongle or vehicle check was run. Actual clone silent/filter/monitor behavior, on-phone layout and 0x541 availability/mapping remain unverified. Shared transport now has a bounded receive queue; all app JVM suites and Kotlin compilation pass with that change.
+
 ## Scanner 0.1.0 — 2026-10-27
 
 Separate read-only Android app for stored/pending/permanent emissions DTCs, readiness and selected frame-0 freeze values. Includes synthetic demo, 9,341 offline community generic descriptions with pinned MIT provenance/license, persistent readable reports and raw JSONL export. Manufacturer-controlled definitions stay unresolved. No code-clearing command is included.

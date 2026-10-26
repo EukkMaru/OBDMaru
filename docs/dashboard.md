@@ -1,6 +1,8 @@
-# OBDMaru Dash 0.1.13
+# OBDMaru Dash 0.1.14
 
 A portrait circular telemetry display, installed separately as `dev.obdmaru.dashboard` alongside Magic and Watcher. No cruise interpretation is included.
+
+Version 0.1.14 adds a separate [parked blinker test](blinker-test.md), listening for the older Hyundai `0x541` candidate with the existing dongle. It does not enable unvalidated live arrows.
 
 Version 0.1.13 adds a [parked bottleneck test](bottleneck.md) with automatic experiments, detailed phone-side timing and a desktop report. Choose **Connect → Parked bottleneck test**; normal **Start** and **Demo** retain the dashboard behavior below.
 

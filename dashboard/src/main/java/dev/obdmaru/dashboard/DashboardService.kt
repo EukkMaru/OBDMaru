@@ -14,10 +14,12 @@ class DashboardService : Service() {
     private var wake: PowerManager.WakeLock? = null
     override fun onBind(intent: Intent?) = null
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == "stop" && blinkerReady) { blinkerStage=BlinkerTest.STAGES.size; return START_NOT_STICKY }
         if (intent?.action == "stop") { running = false; transport?.close(); worker?.interrupt(); return START_NOT_STICKY }
         if (running || worker?.isAlive == true) return START_NOT_STICKY
         val demo = intent?.getBooleanExtra("demo", false) ?: false
         val benchmark = intent?.getBooleanExtra("benchmark", false) ?: false
+        val blinker = intent?.getBooleanExtra("blinker", false) ?: false
         val address = intent?.getStringExtra("address") ?: ""
         getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel("watch", "Dashboard", NotificationManager.IMPORTANCE_LOW))
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
@@ -25,13 +27,14 @@ class DashboardService : Service() {
         startForeground(3, Notification.Builder(this, "watch").setContentTitle("OBDMaru Dash")
             .setContentText("Experimental telemetry · tap to open").setSmallIcon(android.R.drawable.ic_menu_view)
             .setContentIntent(open).addAction(Notification.Action.Builder(null, "Stop", stop).build()).build())
+        blinkerStage=0;blinkerReady=false;blinkerMode=blinker
         running = true; benchmarkProgress=if(benchmark)"Connecting for parked benchmark…"else ""; state = DashState(status = "Connecting…", demo = demo)
         wake = getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "OBDMaru:dashboard").apply { acquire(2 * 60 * 60 * 1000L) }
-        worker = Thread { capture(address, demo, benchmark) }.apply { name = "dashboard-poll"; start() }
+        worker = Thread { capture(address, demo, benchmark, blinker) }.apply { name = "dashboard-poll"; start() }
         return START_NOT_STICKY
     }
     @Suppress("MissingPermission")
-    private fun capture(address: String, demo: Boolean, benchmark:Boolean) {
+    private fun capture(address: String, demo: Boolean, benchmark:Boolean, blinker:Boolean) {
         var log: SessionLog? = null
         var lease: ConnectionLease? = null
         var poller: DashboardPolling? = null
@@ -40,10 +43,10 @@ class DashboardService : Service() {
         var attempt = 0
         try {
             if (!demo) lease = ObdConnectionGuard.acquire(this)
-            log = SessionLog(this,address,if(benchmark)"Parked bottleneck test"else "Dashboard",demo,"dashboard-0.1.13",detailedTiming=benchmark);lastFile=log.file
+            log = SessionLog(this,address,if(blinker)"Parked blinker test"else if(benchmark)"Parked bottleneck test"else "Dashboard",demo,"dashboard-0.1.14",detailedTiming=benchmark);lastFile=log.file
             val session = log
             log.event("obd_connection_guard", "exclusive" to !demo, "demo" to demo)
-            log.event("dashboard_start","tcm_target_hz" to 10,"brake_target_hz" to 10,"speed_target_hz" to 3,"clutch_display_hz" to 1,
+            log.event("dashboard_start","capture_mode" to (if(blinker)"blinker_monitor"else if(benchmark)"benchmark"else "dashboard"),"normal_polling_active" to (!blinker && !benchmark),"tcm_target_hz" to 10,"brake_target_hz" to 10,"speed_target_hz" to 3,"clutch_display_hz" to 1,
                 "rpm_target_hz" to 5, "indicators_target_hz" to 2, "indicators_candidate" to true,
                 "coolant_target_hz" to 1, "coolant_adaptive_intervals_ms" to "1000,2000,5000",
                 "coolant_stale_ms" to DashboardPolling.COOLANT_MAX_AGE_MS,
@@ -67,6 +70,19 @@ class DashboardService : Service() {
                         }catch(e:Exception){elm.close();transport=null;throw e}
                     }
                 }
+            if(blinker) {
+                if(demo)throw java.io.IOException("Blinker test requires a real adapter")
+                val elm=BluetoothElm(session,requestGapMs=0){running};transport=elm
+                elm.connect(getSystemService(BluetoothManager::class.java).adapter.getRemoteDevice(address),false)
+                finalStatus=BlinkerTest(object:BlinkerLink {
+                    override fun query(command:String)=elm.query(command,"blinker_setup_or_reset",6000)
+                    override fun monitor(active:()->Boolean,tick:()->Unit,frame:(ByteArray)->Unit)=elm.monitorCan541(active,tick,frame)
+                },{SystemClock.elapsedRealtime()},{blinkerStage},
+                    {type,fields->session.event(type,*fields.map{it.key to it.value}.toTypedArray())},
+                    {benchmarkProgress=it},{blinkerReady=it}).run()
+                benchmarkProgress=finalStatus
+                return
+            }
             if(benchmark) {
                 val limit=SystemClock.elapsedRealtime()+12*60*1000L
                 fun active()=running && SystemClock.elapsedRealtime()<limit
@@ -106,9 +122,11 @@ class DashboardService : Service() {
             try{benchmarkLink?.close()}catch(_:Exception){}
             transport?.close();transport=null
             lease?.close();lease=null
-            try{log?.close(if(benchmark)finalStatus else "dashboard stopped")}catch(e:Exception){finalStatus="Log finalization failed: ${e.message}"}
+            try{log?.close(if(benchmark || blinker)finalStatus else "dashboard stopped")}catch(e:Exception){finalStatus="Log finalization failed: ${e.message}"}
+            if(blinker)finalStatus+="\nReturn indicators and hazards to OFF. Share the log."
             state=DashState(status=finalStatus,demo=demo);running=false;stopSelf()
-            if(benchmark)benchmarkProgress=finalStatus
+            if(benchmark || blinker)benchmarkProgress=finalStatus
+            blinkerReady=false
         }
     }
     private fun demoLink(log:SessionLog)=object:DashboardLink {
@@ -162,6 +180,9 @@ class DashboardService : Service() {
     companion object {
         @Volatile var running=false
         @Volatile var benchmarkProgress=""
+        @Volatile var blinkerStage=0
+        @Volatile var blinkerReady=false
+        @Volatile var blinkerMode=false
         @Volatile var lastFile:File?=null
         @Volatile var state=DashState()
     }

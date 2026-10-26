@@ -19,7 +19,8 @@ class BluetoothElm(private val log: SessionLog, private val requestGapMs:Long=15
     @Volatile private var socket: BluetoothSocket? = null
     private data class Chunk(val bytes: ByteArray? = null, val error: String? = null,
         val readNs:Long=0, val logNs:Long=0)
-    private val queue = LinkedBlockingQueue<Chunk>()
+    private val queue = LinkedBlockingQueue<Chunk>(256)
+    @Volatile private var streamOverflow = false
     @Volatile private var request: Long? = null
 
     @Suppress("MissingPermission")
@@ -50,7 +51,10 @@ class BluetoothElm(private val log: SessionLog, private val requestGapMs:Long=15
                         "ascii" to bytes.toString(Charsets.US_ASCII),
                         "read_start_ns" to readStart.takeIf{detailedTiming}, "read_end_ns" to readEnd.takeIf{detailedTiming})
                     val logNs = if(detailedTiming)SystemClock.elapsedRealtimeNanos()-logStart else 0
-                    queue.put(Chunk(bytes,readNs=readEnd,logNs=logNs))
+                    if (!queue.offer(Chunk(bytes,readNs=readEnd,logNs=logNs))) {
+                        streamOverflow = true
+                        throw IOException("ELM receive queue overflow")
+                    }
                 }
             } catch (e: Exception) {
                 queue.offer(Chunk(error = e.toString()))
@@ -60,6 +64,7 @@ class BluetoothElm(private val log: SessionLog, private val requestGapMs:Long=15
 
     @Synchronized override fun query(command: String, phase: String, timeoutMs: Long): String {
         if (!active()) throw IOException("Capture stopped")
+        if (streamOverflow) throw IOException("ELM receive queue overflow; reconnect required")
         // Discard from matching only: every chunk has already been preserved by the reader.
         while (queue.poll() != null) {}
         val id = ids.incrementAndGet()
@@ -80,6 +85,7 @@ class BluetoothElm(private val log: SessionLog, private val requestGapMs:Long=15
             var chunks=0;var bytes=0;var rxLogNs=0L;var maxQueueNs=0L
             while (active()) {
                 val remaining = timeoutMs - (SystemClock.elapsedRealtime() - start)
+                if (streamOverflow) throw IOException("ELM receive queue overflow; reconnect required")
                 if (remaining <= 0) {
                     log.event("request_end", "request_id" to id, "outcome" to "timeout", "raw" to out.toString())
                     // Reconnect before sending another request: late replies must never match the next command.
@@ -120,6 +126,42 @@ class BluetoothElm(private val log: SessionLog, private val requestGapMs:Long=15
             log.event("request_error", "request_id" to id, "error" to e.toString())
             throw e
         } finally { request = null }
+    }
+    /** Dedicated finite monitor: no diagnostic queries share the serial stream. */
+    @Synchronized fun monitorCan541(continueMonitoring:()->Boolean, tick:()->Unit, frame:(ByteArray)->Unit):String {
+        while (queue.poll() != null) {}
+        val id=ids.incrementAndGet();request=id
+        fun write(wire:String) {
+            log.event("monitor_tx","request_id" to id,"ascii" to wire,
+                "base64" to Base64.encodeToString(wire.toByteArray(Charsets.US_ASCII),Base64.NO_WRAP))
+            val s=socket?:throw IOException("Not connected")
+            s.outputStream.write(wire.toByteArray(Charsets.US_ASCII));s.outputStream.flush()
+        }
+        try {
+            return CanMonitor.run(now={SystemClock.elapsedRealtime()},active={active() && continueMonitoring()},
+                read={
+                    if(streamOverflow)throw IOException("ELM receive queue overflow")
+                    val chunk=queue.poll(100,TimeUnit.MILLISECONDS)
+                    chunk?.error?.let{throw IOException(it)}
+                    chunk?.bytes?.toString(Charsets.US_ASCII)
+                },write=::write,stopBoundary={
+                    // Stop button may interrupt a poll; clear interruption for bounded cleanup.
+                    Thread.interrupted()
+                    try {
+                        write("\r")
+                        val deadline=SystemClock.elapsedRealtime()+2000
+                        var prompt=false;var quiet=false
+                        while(SystemClock.elapsedRealtime()<deadline) {
+                            val chunk=queue.poll(100,TimeUnit.MILLISECONDS)
+                            if(chunk==null){if(prompt){quiet=true;break};continue}
+                            chunk.error?.let{throw IOException(it)}
+                            if(chunk.bytes?.toString(Charsets.US_ASCII)?.contains('>')==true)prompt=true
+                        }
+                        log.event("monitor_stop_boundary","prompt" to prompt,"quiet" to quiet)
+                        prompt && quiet && !streamOverflow
+                    } catch(e:Exception){log.event("monitor_stop_error","error" to e.toString());false}
+                },tick=tick,frame=frame)
+        } finally {request=null}
     }
     /** Abort a stuck read, drain through a quiet boundary, then require a fresh identity reply.
      * A late diagnostic prompt alone must never count as successful recovery.

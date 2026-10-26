@@ -2,7 +2,7 @@
 
 **New: [OBDMaru Scanner 0.1.0](docs/scanner.md)** — a separate read-only fault-code app for the existing Bluetooth dongle. Stored/pending/permanent emissions codes, readiness, available freeze-frame data, 9,341 offline generic community descriptions and shareable reports/raw logs. [Download Scanner](https://github.com/EukkMaru/OBDMaru/releases/download/scanner-v0.1.0/OBDMaru-Scanner-v0.1.0.apk). Exact Hyundai TL manufacturer-code coverage remains unverified.
 
-Dash **0.1.13** adds a [parked adapter bottleneck test](docs/bottleneck.md): automatic read-only experiments, raw replies/failures, detailed phone-side transport/logging timestamps and a standard-library Python report. [Download Dash](https://github.com/EukkMaru/OBDMaru/releases/download/dashboard-v0.1.13/OBDMaru-Dash-v0.1.13.apk).
+Dash **0.1.14** adds a [parked blinker discovery test](docs/blinker-test.md) for raw CAN `0x541` using the existing Bluetooth dongle. Guided stage markers, live raw candidate fields and shareable logs; no blinker mapping is assumed validated. The [bottleneck test](docs/bottleneck.md) remains available. [Download Dash](https://github.com/EukkMaru/OBDMaru/releases/download/dashboard-v0.1.14/OBDMaru-Dash-v0.1.14.apk).
 
 Android diagnostic capture for a **2018 Hyundai Tucson TL, pre-facelift, 1.7 CRDi with dry 7DCT**, a generic **ELM327 Bluetooth Classic** adapter, and a **Galaxy S23+ on Android 16 / One UI 8.5**. No root required.
 
