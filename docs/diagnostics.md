@@ -24,6 +24,24 @@ Transmission candidates, request header `7E1` (expected response `7E9`):
 
 No temperature formula is applied in this recorder. In particular, transmission oil temperature must not be presented as dry clutch temperature. Even a positive reply requires checking payload layout, units, scaling and applicability before a dashboard labels it.
 
+## Blinker investigation — older Hyundai CAN candidate (2026-10-27)
+
+Dash's `770/22BC08` route remains unvalidated on the owner's pre-facelift TL. The parked 0.1.13 benchmark includes eight attempts (six benchmark, two final scheduler), all `NO DATA`; no indicator payload was obtained. OBDb's available `770.778.22BC08` fixtures are from 2022–2024, not proof of support on the target vehicle. A drawing/bit-mask change cannot recover bytes that never arrived.
+
+An alternative investigation lead is **raw broadcast CAN ID `0x541` (decimal 1345), `CGW1`, eight data bytes**, in commaai/opendbc's older [`hyundai_2015_ccan.dbc`](https://github.com/commaai/opendbc/blob/1bce882c6330f8cc591f368f415ae5fa241ae225/opendbc/dbc/hyundai_2015_ccan.dbc#L903). Revision: `1bce882c6330f8cc591f368f415ae5fa241ae225`. The corresponding fields also appear in its current Hyundai CAN generator, and its Hyundai car-state implementation reads the two lamp fields for blinkers. This is an older-family community candidate, **not an exact 2017 Tucson TL 1.7D validation**.
+
+| Candidate field | DBC position, little-endian | Extraction from raw eight-byte CAN data |
+| --- | --- | --- |
+| `CF_Gway_TurnSigLh` | Start bit 19, length 2 | `(data[2] >> 3) & 3` |
+| `CF_Gway_TurnSigRh` | Start bit 62, length 2 | `(data[7] >> 6) & 3` |
+| `CF_Gway_TSigLHSw` | Start bit 42, length 1 | `(data[5] >> 2) & 1` |
+| `CF_Gway_TSigRHSw` | Start bit 41, length 1 | `(data[5] >> 1) & 1` |
+| `CF_Gway_HazardSw` | Start bit 33, length 2 | `(data[4] >> 1) & 3` |
+
+These are **raw CAN-frame offsets**, not Watcher data-block indices or offsets within a `62 ...` diagnostic payload. Keep two-bit lamp/hazard values as raw enums until observations establish their states; do not silently label values 2/3 as normal activation. Stalk-switch and lamp-phase fields may behave differently for hazards and one-touch blinking.
+
+The next useful check is a short parked capture of off/left/off/right/off/hazards/off while listening specifically for `0x541`. Original ELM327 firmware documents receive-ID filtering (`ATCRA541`), silent CAN monitoring (`ATCSM1`) and monitoring (`ATMA`); these are a possible **existing-dongle** discovery route, not a confirmed capability of this clone. Monitor stop/prompt handling and restoration of normal adapter settings require dedicated app support. Monitoring occupies the current serial session and cannot run alongside the existing Dash request loop. Current releases do not implement this test or a `0x541` blinker source. If no matching frames reach OBD, a different physical bus may be required; absence there does not prove the message is absent elsewhere in the car.
+
 ## U19 gear-state observation — uncertain
 
 For Watcher block **U19 (`7E1/2201A4`)**, byte indices are zero-based data offsets after removing the positive-response service and identifier (`62 01 A4`). The cited OBDb definition labels the low four bits of **b23** as “Current gear” and the low four bits of **b24** as “Next gear” (`b23 & 0x0F` / `b24 & 0x0F`).
