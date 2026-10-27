@@ -43,7 +43,7 @@ class DashboardService : Service() {
         var attempt = 0
         try {
             if (!demo) lease = ObdConnectionGuard.acquire(this)
-            log = SessionLog(this,address,if(blinker)"Parked blinker test"else if(benchmark)"Parked bottleneck test"else "Dashboard",demo,"dashboard-0.1.14",detailedTiming=benchmark);lastFile=log.file
+            log = SessionLog(this,address,if(blinker)"Parked blinker test"else if(benchmark)"Parked bottleneck test"else "Dashboard",demo,"dashboard-0.1.15",detailedTiming=benchmark);lastFile=log.file
             val session = log
             log.event("obd_connection_guard", "exclusive" to !demo, "demo" to demo)
             log.event("dashboard_start","capture_mode" to (if(blinker)"blinker_monitor"else if(benchmark)"benchmark"else "dashboard"),"normal_polling_active" to (!blinker && !benchmark),"tcm_target_hz" to 10,"brake_target_hz" to 10,"speed_target_hz" to 3,"clutch_display_hz" to 1,

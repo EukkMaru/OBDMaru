@@ -1,6 +1,8 @@
-# OBDMaru Dash 0.1.14
+# OBDMaru Dash 0.1.15
 
 A portrait circular telemetry display, installed separately as `dev.obdmaru.dashboard` alongside Magic and Watcher. No cruise interpretation is included.
+
+Version 0.1.15 fixes startup compatibility for adapters that reject `ATCSM1`: a fresh read-only `ATPPS` check can establish a reported silent reset default after `ATZ`. This relies on ELM-compatible reset/PP semantics; clone electrical behavior remains unverified. An unsupported `ATCRA541` can use exact filter `ATCF541` plus mask `ATCM7FF`. No persistent parameter writes or active/unfiltered fallback are added.
 
 Version 0.1.14 adds a separate [parked blinker test](blinker-test.md), listening for the older Hyundai `0x541` candidate with the existing dongle. It does not enable unvalidated live arrows.
 

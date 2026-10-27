@@ -69,11 +69,12 @@ class BlinkerTestTest {
     }
     private class Fake: BlinkerLink {
         val commands=mutableListOf<String>();var reject="";var fail="";var monitored=false;var streamFail=false
+        var pps="?\r>";var extraReject="";var specialCommand="";var specialReply=""
         var stages:()->Unit={}
         override fun query(command:String):String {
             commands.add(command)
             if(command==fail)throw IOException("lost prompt")
-            return if(command==reject)"?\r>"else if(command=="ATZ")"ELM327 v1.5\r>"else "OK\r>"
+            return if(command==specialCommand)specialReply else if(command=="ATPPS")pps else if(command==reject || command==extraReject)"?\r>"else if(command=="ATZ")"ELM327 v1.5\r>"else "OK\r>"
         }
         override fun monitor(active:()->Boolean,tick:()->Unit,frame:(ByteArray)->Unit):String {
             monitored=true;if(streamFail)throw IOException("monitor failed")
@@ -88,11 +89,45 @@ class BlinkerTestTest {
         assertEquals(listOf(true,false),ready)
         assertFalse(f.commands.any{it=="ATCSM0" || it=="ATCFC0"})
     }
-    @Test fun unsupportedSilentOrFilterNeverFallsBackToUnfilteredMonitoring() {
-        for(command in listOf("ATCSM1","ATCRA541","ATD1")) {
+    @Test fun unsupportedRequiredSettingsNeverFallBackToUnfilteredOrUnestablishedSilentMonitoring() {
+        for(command in listOf("ATCSM1","ATCF541","ATD1")) {
             val f=Fake().apply{reject=command}
+            if(command=="ATCF541")f.extraReject="ATCRA541"
             assertThrows(IOException::class.java){plan(f).run()};assertFalse(f.monitored);assertEquals("ATZ",f.commands.last())
         }
+    }
+    @Test fun capturedFactoryDefaultTableAllowsUnsupportedSilentToggle() {
+        val f=Fake().apply{reject="ATCSM1";pps="20:FF F  21:FF F  22:FF F\r>"}
+        val events=mutableListOf<Pair<String,Map<String,Any?>>>()
+        plan(f,events=events).run();assertTrue(f.monitored)
+        assertEquals(listOf("ATCSM1","ATPPS","ATCRA541"),f.commands.drop(8).take(3))
+        assertEquals("pp21_reported_reset_default",events.single{it.first=="blinker_test_start"}.second["silent_basis"])
+        assertFalse(events.single{it.first=="blinker_silent_setup"}.second["hardware_verified"] as Boolean)
+        assertFalse(f.commands.any{it.startsWith("ATPP") && it!="ATPPS" || it=="ATCSM0"})
+    }
+    @Test fun pp21EffectiveDefaultFollowsEnabledFlagWithoutTrustingVersionString() {
+        for(table in listOf("21:FF F\r>","21:FF N\r>","21:00 F\r>","ATPPS\r21:FF F\r>"))assertTrue(BlinkerTest.silentDefault(table))
+        for(table in listOf("21:00 N\r>","21:01 N\r>","?\r>","21:FF F", "21:FF F\r21:00 N\r>","21:FF F\rCAN ERROR\r>","20:FF F\r>"))assertFalse(table,BlinkerTest.silentDefault(table))
+    }
+    @Test fun unsafeOrMissingDefaultNeverStartsMonitor() {
+        for(pps in listOf("?\r>","21:00 N\r>","21:FF F\rERROR\r>","21:FF F")) {
+            val f=Fake().apply{reject="ATCSM1";this.pps=pps}
+            assertThrows(IOException::class.java){plan(f).run()};assertFalse(f.monitored)
+        }
+    }
+    @Test fun fallbackQueryTimeoutStopsWithoutFurtherCommands() {
+        val f=Fake().apply{reject="ATCSM1";fail="ATPPS"}
+        assertThrows(IOException::class.java){plan(f).run()};assertFalse(f.monitored);assertEquals("ATPPS",f.commands.last())
+    }
+    @Test fun olderFilterCommandsStillRequireExactMask() {
+        val f=Fake().apply{reject="ATCRA541"};plan(f).run();assertTrue(f.monitored)
+        assertEquals(listOf("ATCRA541","ATCF541","ATCM7FF","ATZ"),f.commands.takeLast(4))
+        val bad=Fake().apply{reject="ATCRA541";extraReject="ATCM7FF"}
+        assertThrows(IOException::class.java){plan(bad).run()};assertFalse(bad.monitored)
+    }
+    @Test fun mixedSettingReplyIsNotAcceptedOrTreatedAsUnsupported() {
+        val f=Fake().apply{specialCommand="ATCSM1";specialReply="OK\r?\r>"}
+        assertThrows(IOException::class.java){plan(f).run()};assertFalse(f.monitored);assertFalse(f.commands.contains("ATPPS"))
     }
     @Test fun queryTimeoutDoesNotSendResetIntoUnknownBoundary() {
         val f=Fake().apply{fail="ATCRA541"}

@@ -23,14 +23,46 @@ class BlinkerTest(private val link:BlinkerLink,private val now:()->Long,
     private val requestedStage:()->Int,private val event:(String,Map<String,Any?>)->Unit,
     private val publish:(String)->Unit,private val ready:(Boolean)->Unit) {
     private var safeBoundary=true
-    private fun query(command:String):String = try {link.query(command)}catch(e:Exception){safeBoundary=false;throw e}
-    private fun ok(command:String) {
+    private fun query(command:String):String = try {
+        link.query(command).also {if('>' !in it)throw IOException("Command boundary missing: $command")}
+    }catch(e:Exception){safeBoundary=false;throw e}
+    /** Only explicit '?' permits a compatibility fallback, never timeouts or mixed errors. */
+    private fun accepted(command:String):Boolean {
         val raw=query(command)
-        if('>' !in raw || raw.split('\r','\n','>').none{it.trim()=="OK"})throw IOException("Required setting rejected: $command")
+        val lines=raw.uppercase().split('\r','\n','>').map{it.trim()}.filter{it.isNotEmpty() && it.replace(" ","")!=command}
+        if('>' !in raw)throw IOException("Command boundary missing: $command")
+        return when(lines) {
+            listOf("OK")->true
+            listOf("?")->false
+            else->throw IOException("Unexpected setting reply: $command")
+        }
+    }
+    private fun ok(command:String) {
+        if(!accepted(command))throw IOException("Required setting rejected: $command")
+    }
+    private fun silentSetup():String {
+        if(accepted("ATCSM1")) {
+            event("blinker_silent_setup",mapOf("basis" to "csm1_ok","hardware_verified" to false))
+            return "csm1_ok"
+        }
+        // ATZ just restored defaults. PPS is read-only; never change persistent parameters.
+        val pps=query("ATPPS")
+        val pp=silentDefault(pps)
+        event("blinker_silent_setup",mapOf("basis" to "pp21_reported_reset_default",
+            "csm1_rejected" to true,"default_silent_reported" to pp,
+            "hardware_verified" to false,"note" to "ELM reset/default semantics, not physical clone verification"))
+        if(!pp)throw IOException("ATCSM1 unsupported and silent reset default not established; share log")
+        return "pp21_reported_reset_default"
+    }
+    private fun filterSetup():String {
+        if(accepted("ATCRA541"))return "cra541_ok"
+        // Same exact 11-bit ID, using the older filter + mask commands. No broad fallback.
+        ok("ATCF541");ok("ATCM7FF")
+        return "cf541_cm7ff_ok"
     }
     fun run():String {
         var stage=-1;var count=0;var lastAt=0L;var last: BlinkerCandidate?=null
-        var start=0L;var lastPublish=Long.MIN_VALUE
+        var start=0L;var lastPublish=Long.MIN_VALUE;var silentBasis=""
         fun tick() {
             val selected=requestedStage().coerceIn(0,STAGES.size)
             if(selected!=stage) {
@@ -47,16 +79,19 @@ class BlinkerTest(private val link:BlinkerLink,private val now:()->Long,
                 val hz=if(at>start)count*1000.0/(at-start)else 0.0
                 publish("Parked blinker test · ${((120000-(at-start)).coerceAtLeast(0)/1000)}s left\n"+
                     "${stage+1}/7: ${STAGES.getOrNull(stage)?:"Finishing"}\n"+
-                    "Hold each stage 5–10 seconds, then tap Next.\n$values\n$count frames · %.1f Hz%s\nCandidate values only; keep the car parked.".format(java.util.Locale.US,hz,age))
+                    "Hold each stage 5–10 seconds, then tap Next.\n$values\n$count frames · %.1f Hz%s\n".format(java.util.Locale.US,hz,age)+
+                    (if(silentBasis=="csm1_ok")"Silent: command accepted"else "Silent: reported reset default")+"\nCandidate values only; keep the car parked.")
             }
         }
         try {
             publish("Configuring filtered silent monitor…")
             val identity=query("ATZ").uppercase()
             if('>' !in identity || listOf("ELM","OBD","STN").none{it in identity})throw IOException("Unrecognized adapter reset reply")
-            for(cmd in listOf("ATE0","ATL0","ATH1","ATS0","ATSP6","ATCAF0","ATD1","ATCSM1","ATCRA541"))ok(cmd)
+            for(cmd in listOf("ATE0","ATL0","ATH1","ATS0","ATSP6","ATCAF0","ATD1"))ok(cmd)
+            silentBasis=silentSetup()
+            val filterBasis=filterSetup()
             event("blinker_test_start",mapOf("can_id" to "541","protocol" to "11-bit CAN 500k",
-                "silent_requested" to true,"max_duration_ms" to 120000,
+                "silent_requested" to true,"silent_basis" to silentBasis,"filter_basis" to filterBasis,"max_duration_ms" to 120000,
                 "timestamp_scope" to "phone arrival, not CAN electrical time",
                 "mapping" to "opendbc 1bce882c6330f8cc591f368f415ae5fa241ae225 hyundai_2015_ccan.dbc CGW1; unvalidated candidate"))
             start=now();ready(true)
@@ -84,6 +119,18 @@ class BlinkerTest(private val link:BlinkerLink,private val now:()->Long,
         }
     }
     companion object {
+        /** PP21 is effective after reset: F = factory FF (silent), N = assigned value.
+         * A PPS table can include unimplemented parameters. This is reported-default
+         * evidence under ELM semantics, not evidence of the clone's physical behavior. */
+        fun silentDefault(raw:String):Boolean {
+            if('>' !in raw)return false
+            val body=raw.uppercase().replace("ATPPS", "").replace(">", "").trim()
+            val entry=Regex("([0-9A-F]{2}):([0-9A-F]{2})\\s*([NF])")
+            if(entry.replace(body, "").any{!it.isWhitespace()})return false
+            val matches=entry.findAll(body).filter{it.groupValues[1]=="21"}.toList()
+            if(matches.size!=1)return false
+            return matches[0].groupValues[3]=="F" || matches[0].groupValues[2]=="FF"
+        }
         val STAGES=listOf("Indicators OFF; hazards OFF", "LEFT indicator ON; hazards OFF", "LEFT OFF; both indicators OFF",
             "RIGHT indicator ON; hazards OFF", "RIGHT OFF; both indicators OFF", "HAZARDS ON; stalk neutral", "HAZARDS OFF; both indicators OFF")
     }

@@ -1,5 +1,11 @@
 # Verification — 2026-10-21
 
+## Dash 0.1.15 — 2026-10-27
+
+Handles the owner's observed `ATCSM1` rejection using a fresh read-only `ATPPS` check after reset. Reports PP21 reset-default evidence separately from an accepted CSM command; physical clone behavior remains unverified. Adds an exact `ATCF541`/`ATCM7FF` alternative if CRA is explicitly unsupported. No persistent parameter writes, active-mode commands or unfiltered monitoring are introduced.
+
+Validation: 148 JVM tests pass across four apps (78 Dashboard/shared, including six new compatibility tests). Checks cover the earlier capture's `21:FF F` response shape, enabled/disabled default semantics, missing/malformed/conflicting summaries, active default refusal, unsupported summary, fallback timeout, exact filter/mask acceptance and failure, and mixed command errors. Dash APK and instrumentation APK compile; lint has zero errors and eight warnings. No emulator, phone or car test was run. The default fallback relies on reported ELM-compatible behavior and is explicitly not an electrical verification.
+
 ## Dash 0.1.14 — 2026-10-27
 
 Adds a separate two-minute parked raw-CAN blinker discovery test using the current Bluetooth adapter: checked silent/filter setup, strict 0x541/DLC8 streaming, manual off/left/off/right/off/hazards/off stage markers, raw candidate fields, completed/partial log sharing and bounded stop/reset cleanup. Ordinary Dash indicators remain unvalidated and do not switch sources.
