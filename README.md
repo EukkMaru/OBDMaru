@@ -1,6 +1,6 @@
 # OBDMaru — Magic App 2.0
 
-**New: [OBDMaru Scanner 0.1.0](docs/scanner.md)** — a separate read-only fault-code app for the existing Bluetooth dongle. Stored/pending/permanent emissions codes, readiness, available freeze-frame data, 9,341 offline generic community descriptions and shareable reports/raw logs. [Download Scanner](https://github.com/EukkMaru/OBDMaru/releases/download/scanner-v0.1.0/OBDMaru-Scanner-v0.1.0.apk). Exact Hyundai TL manufacturer-code coverage remains unverified.
+**New: [OBDMaru Scanner 0.1.1](docs/scanner.md)** — a separate read-only fault-code app for the existing Bluetooth dongle. Stored/pending/permanent emissions codes, readiness, available freeze-frame data, 9,341 offline generic community descriptions and shareable reports/raw logs. [Download Scanner](https://github.com/EukkMaru/OBDMaru/releases/download/scanner-v0.1.1/OBDMaru-Scanner-v0.1.1.apk). Exact Hyundai TL manufacturer-code coverage remains unverified.
 
 Dash **0.1.15** adds a [parked blinker discovery test](docs/blinker-test.md) for raw CAN `0x541` using the existing Bluetooth dongle. Version 0.1.15 handles a rejected `ATCSM1` through a fresh read-only reported-default check. Guided stage markers, live raw candidate fields and shareable logs; no blinker mapping is assumed validated. The [bottleneck test](docs/bottleneck.md) remains available. [Download Dash](https://github.com/EukkMaru/OBDMaru/releases/download/dashboard-v0.1.15/OBDMaru-Dash-v0.1.15.apk).
 

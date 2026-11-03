@@ -1,8 +1,8 @@
-# OBDMaru Scanner 0.1.0
+# OBDMaru Scanner 0.1.1
 
 A separate Android 12+ app for the existing Bluetooth Classic ELM327 adapter. Package: `dev.obdmaru.scanner`. It installs alongside Magic, Watcher and Dash.
 
-[Download Scanner APK](https://github.com/EukkMaru/OBDMaru/releases/download/scanner-v0.1.0/OBDMaru-Scanner-v0.1.0.apk) · [Release](https://github.com/EukkMaru/OBDMaru/releases/tag/scanner-v0.1.0)
+[Download Scanner APK](https://github.com/EukkMaru/OBDMaru/releases/download/scanner-v0.1.1/OBDMaru-Scanner-v0.1.1.apk) · [Release](https://github.com/EukkMaru/OBDMaru/releases/tag/scanner-v0.1.1)
 
 ## Use
 
@@ -12,6 +12,8 @@ A separate Android 12+ app for the existing Bluetooth Classic ELM327 adapter. Pa
 4. Stop other OBD apps. In Scanner, **Refresh**, select the paired adapter and tap **Scan car**.
 5. Wait for the finite scan to finish. It saves and disconnects automatically. **Stop** preserves a partial scan.
 6. Use **Share report** for readable text and **Share raw** for the diagnostic JSONL. **Saved scans** opens older reports and their matching raw logs. Send logs privately.
+
+Version 0.1.1 recognizes Android's plain-text “Address already in use” socket error as a busy connection guard. Stop the named OBDMaru app and retry. Other guard errors still block the connection, show the underlying error, and can be exported via **Share raw** even when the scan stops before Bluetooth connects.
 
 The shared connection guard excludes updated Magic/Watcher/Dash while Scanner is connected. Existing guard-enabled releases still block Scanner through the same OS lock, although they may identify its owner as “Another OBDMaru app.” They do not need reinstalling just to honor exclusion. Installed pre-guard versions must be updated or uninstalled. Arbitrary third-party OBD apps are not covered by this cooperative lock.
 

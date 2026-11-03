@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.net.LocalServerSocket
 import android.system.ErrnoException
+import android.system.Os
 import android.system.OsConstants
 import java.io.Closeable
 import java.io.IOException
@@ -26,8 +27,9 @@ object ObdConnectionGuard {
         return ConnectionLease.acquire(mine.name){name->
             try { val socket=LocalServerSocket(name);Closeable{socket.close()} }
             catch(e:IOException){
-                val busy=generateSequence<Throwable>(e){it.cause}.any{it is ErrnoException && it.errno==OsConstants.EADDRINUSE} || e.message?.contains("EADDRINUSE")==true
-                if(busy)throw LeaseNameBusy(e)else throw e
+                throw classifyLeaseBindFailure(e, Os.strerror(OsConstants.EADDRINUSE)) {
+                    it is ErrnoException && it.errno == OsConstants.EADDRINUSE
+                }
             }
         }
     }

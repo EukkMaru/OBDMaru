@@ -41,10 +41,10 @@ class ScannerService : Service() {
         var end="Scan interrupted; remaining queries unknown"
         var completed=false
         try {
-            if(!demo) lease=ObdConnectionGuard.acquire(this)
-            log=SessionLog(this,address,"Scanner",demo,"scanner-0.1.0")
+            log=SessionLog(this,address,"Scanner",demo,"scanner-0.1.1")
             lastLog=log.file; lastReport=File(log.file.parentFile,log.file.nameWithoutExtension+".txt")
             log.event("scanner_start","coverage" to "standard emissions OBD-II / CAN 11-bit 500k", "clear_enabled" to false)
+            if(!demo) lease=ObdConnectionGuard.acquire(this)
             val catalog=DtcCatalog.load(assets.open("dtc-generic.tsv").reader())
             val decoder=ScanDecoder(catalog)
             val elm: ElmTransport=if(demo) ScannerDemo(log) else {
@@ -86,7 +86,7 @@ class ScannerService : Service() {
             end="Scan finished; inspect each category's coverage below"
         } catch(e: Exception) {
             end=if(!running || e is InterruptedException)"Stopped; remaining queries unknown" else "Scan interrupted: ${e.message}"
-            try { log?.event("scanner_error","error" to e.toString()) }catch(_:Exception){}
+            try { log?.event("scanner_error","error" to e.toString(), "causes" to JSONArray(generateSequence(e.cause){it.cause}.take(8).map{it.toString()}.toList())) }catch(_:Exception){}
         } finally {
             transport?.close(); transport=null
             try { lease?.close() }catch(_:Exception){}

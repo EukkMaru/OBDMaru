@@ -183,7 +183,7 @@ class ScanDecoder(private val catalog: DtcCatalog) {
 
 object ScanReport {
     fun render(replies: List<ScanReply>, demo: Boolean, state: String): String = buildString {
-        appendLine("OBDMaru Scanner 0.1.0${if(demo)" · SYNTHETIC DEMO" else ""}")
+        appendLine("OBDMaru Scanner 0.1.1${if(demo)" · SYNTHETIC DEMO" else ""}")
         appendLine("$state\nCoverage: standard emissions OBD-II, CAN 11-bit / 500 kbit/s.")
         appendLine("A missing reply means unknown, not zero faults. ABS/airbag/body scan coverage is not established.")
         appendLine("Descriptions: offline community generic reference; exact Hyundai TL manufacturer definitions are not bundled.")

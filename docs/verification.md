@@ -1,5 +1,9 @@
 # Verification — 2026-10-21
 
+## Scanner 0.1.1 — 2026-11-04
+
+Recognizes Android's plain-text busy socket error without changing the shared lock. Regression tests cover owner identification, exclusion, retry after release, and preservation of other OS errors. Scanner now saves a raw log for failures before Bluetooth connects. All four JVM suites, Scanner APK compilation and lint pass. No phone or vehicle test was run.
+
 ## Dash 0.1.15 — 2026-10-27
 
 Handles the owner's observed `ATCSM1` rejection using a fresh read-only `ATPPS` check after reset. Reports PP21 reset-default evidence separately from an accepted CSM command; physical clone behavior remains unverified. Adds an exact `ATCF541`/`ATCM7FF` alternative if CRA is explicitly unsupported. No persistent parameter writes, active-mode commands or unfiltered monitoring are introduced.

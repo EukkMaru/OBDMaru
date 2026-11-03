@@ -6,6 +6,16 @@ import java.io.IOException
 class ObdGuardException(message:String,cause:Throwable?=null):IOException(message,cause)
 class LeaseNameBusy(cause:Throwable?=null):IOException("Lease name already bound",cause)
 
+/** Android's LocalServerSocket can report strerror text without an ErrnoException. */
+internal fun classifyLeaseBindFailure(error: IOException, addressInUseText: String, isBusyErrno: (Throwable) -> Boolean): IOException {
+    val busy = generateSequence<Throwable>(error) { it.cause }.any {
+        isBusyErrno(it) || it.message?.let { message ->
+            message.trim().equals(addressInUseText, ignoreCase = true) || "EADDRINUSE" in message
+        } == true
+    }
+    return if (busy) LeaseNameBusy(error) else error
+}
+
 /** Cross-process exclusion via an atomic OS bind, held until the service closes its Bluetooth socket.
  * The owner marker is only a label; the single global bind is the actual exclusion primitive.
  */
@@ -19,10 +29,10 @@ class ConnectionLease private constructor(private val marker:Closeable,private v
         fun acquire(owner:String,bind:(String)->Closeable):ConnectionLease {
             require(owner in owners)
             val label=try{bind(marker(owner))}catch(e:LeaseNameBusy){throw ObdGuardException("$owner is already using OBD. Stop its recording first.",e)}
-                catch(e:IOException){throw ObdGuardException("OBD connection guard unavailable; connection blocked.",e)}
+                catch(e:IOException){throw ObdGuardException("OBD connection guard unavailable; connection blocked: ${e.message ?: e.javaClass.simpleName}",e)}
             val lock=try{bind(NAME)}catch(e:IOException){
                 label.close()
-                if(e !is LeaseNameBusy)throw ObdGuardException("OBD connection guard unavailable; connection blocked.",e)
+                if(e !is LeaseNameBusy)throw ObdGuardException("OBD connection guard unavailable; connection blocked: ${e.message ?: e.javaClass.simpleName}",e)
                 val held=owners.filter { candidate->
                     try{bind(marker(candidate)).use{};false}catch(_:LeaseNameBusy){true}catch(_:IOException){false}
                 }

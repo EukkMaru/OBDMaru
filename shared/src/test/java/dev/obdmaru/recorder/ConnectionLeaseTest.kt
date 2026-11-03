@@ -26,6 +26,28 @@ class ConnectionLeaseTest {
    assertTrue(k.held.isEmpty())
   }
  }
+ @Test fun androidPlainBindErrorIdentifiesOwnerWithoutBypassingLock(){
+  val k=Kernel()
+  val bind:(String)->Closeable={name->
+   try{k.bind(name)}catch(_:LeaseNameBusy){
+    throw classifyLeaseBindFailure(IOException("Address already in use"),"Address already in use"){false}
+   }
+  }
+  ConnectionLease.acquire("Dash",bind).use {
+   val error=assertThrows(ObdGuardException::class.java){ConnectionLease.acquire("Scanner",bind)}
+   assertTrue(error.message!!.startsWith("Dash is using OBD"))
+  }
+  ConnectionLease.acquire("Scanner",bind).use{}
+  assertTrue(k.held.isEmpty())
+ }
+ @Test fun unrelatedOsFailureRemainsUnavailableWithItsReason(){
+  val denied=IOException("Permission denied")
+  assertSame(denied,classifyLeaseBindFailure(denied,"Address already in use"){false})
+  val error=assertThrows(ObdGuardException::class.java){
+   ConnectionLease.acquire("Scanner"){throw denied}
+  }
+  assertTrue(error.message!!.contains("Permission denied"))
+ }
  @Test fun simultaneousStartsHaveOnlyOneWinner(){
   val k=Kernel();val start=CountDownLatch(1);val finish=CountDownLatch(1)
   val pool=Executors.newFixedThreadPool(ConnectionLease.owners.size)
